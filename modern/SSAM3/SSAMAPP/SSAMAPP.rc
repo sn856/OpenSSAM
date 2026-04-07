@@ -1,0 +1,576 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#ifndef APSTUDIO_INVOKED
+#include "targetver.h"
+#endif
+#include "afxres.h"
+#include "verrsrc.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#ifndef APSTUDIO_INVOKED\r\n"
+    "#include ""targetver.h""\r\n"
+    "#endif\r\n"
+    "#include ""afxres.h""\r\n"
+    "#include ""verrsrc.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "#define _AFX_NO_SPLITTER_RESOURCES\r\n"
+    "#define _AFX_NO_OLE_RESOURCES\r\n"
+    "#define _AFX_NO_TRACKER_RESOURCES\r\n"
+    "#define _AFX_NO_PROPERTY_RESOURCES\r\n"
+    "\r\n"
+    "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)\r\n"
+    "LANGUAGE 9, 1\r\n"
+    "#include ""res\\SSAMAPP.rc2""  // non-Microsoft Visual C++ edited resources\r\n"
+    "#include ""afxres.rc""      // Standard components\r\n"
+    "#if !defined(_AFXDLL)\r\n"
+    "#include ""afxribbon.rc""   // MFC ribbon and control bar resources\r\n"
+    "#endif\r\n"
+    "#endif\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDR_MAINFRAME           ICON                    "res\\SSAMAPP.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUTBOX DIALOGEX 0, 0, 347, 166
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About OpenSSAM"
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,14,14,21,20
+    LTEXT           "OpenSSAM",IDC_STATIC,42,14,286,10,SS_NOPREFIX
+    DEFPUSHBUTTON   "OK",IDOK,225,145,50,14,WS_GROUP
+    PUSHBUTTON      "View Software Terms of Use and Disclaimer",IDC_BUTTON_VIEW,57,145,158,14
+    LTEXT           "OpenSSAM is the actively maintained continuation of the archived SSAM 3.0 codebase.",IDC_STATIC,42,30,287,19
+    LTEXT           "OpenSSAM is distributed under the GNU Affero General Public License (https://www.gnu.org/licenses/agpl-3.0.en.html). By using the software, the user agrees to the applicable AGPL terms and conditions.",IDC_STATIC,42,55,287,26
+    LTEXT           "The software is developed under contract with US DOT, Contract No. SBIR DTRT5715C10005.",IDC_STATIC,42,87,287,19
+    LTEXT           "The original SSAM versions (2.16 and prior) were developed by Siemens traffic Solutions for the Federal Highway Administration.",IDC_STATIC,42,112,287,20
+END
+
+IDD_SSAMAPP_DIALOG DIALOGEX 0, 0, 999, 415
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "OpenSSAM"
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,830,394,50,14,NOT WS_VISIBLE
+    PUSHBUTTON      "Close",IDCANCEL,942,394,50,14
+    CONTROL         "",IDC_TAB1,"SysTabControl32",0x0,7,7,985,386
+    PUSHBUTTON      "Save...",IDC_BUTTON_SAVE,7,394,50,14
+    PUSHBUTTON      "Open...",IDC_BUTTON_OPEN,61,394,50,14
+    PUSHBUTTON      "About OpenSSAM",IDC_BUTTON_ABOUT,860,394,80,14
+END
+
+IDD_DIALOG_CONFIGURE DIALOGEX 0, 0, 604, 410
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    GROUPBOX        "Case Files",IDC_STATIC,15,20,575,98
+    LTEXT           "Trajectory Files: ",IDC_STATIC,29,38,55,8
+    PUSHBUTTON      "Add",IDC_BUTTON_ADD,31,55,50,14
+    PUSHBUTTON      "Delete",IDC_BUTTON_DELETE,31,74,50,14
+    LISTBOX         IDC_LIST_TRJFILES,90,27,495,86,LBS_MULTIPLESEL | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_HSCROLL | WS_TABSTOP
+    GROUPBOX        "Conflict Thresholds",IDC_STATIC,15,124,575,109
+    LTEXT           "Maximum time-to-collision (TTC):",IDC_STATIC,29,143,104,8
+    LTEXT           "Maximum post-encroachment time (PET):",IDC_STATIC,29,159,132,8
+    LTEXT           "Conflict angle thresholds:",IDC_STATIC,29,180,82,8
+    LTEXT           "Rear end angle: ",IDC_STATIC,29,196,54,8
+    LTEXT           "Crossing angle: ",IDC_STATIC,29,212,52,8
+    EDITTEXT        IDC_EDIT_TTC,175,140,53,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_TTC,"msctls_updown32",UDS_ARROWKEYS,226,141,10,14
+    EDITTEXT        IDC_EDIT_PET,175,158,53,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_PET,"msctls_updown32",UDS_ARROWKEYS,226,157,10,14
+    EDITTEXT        IDC_EDIT_REARANGLE,175,192,53,14,ES_AUTOHSCROLL | ES_NUMBER,WS_EX_RIGHT | WS_EX_RTLREADING
+    CONTROL         "",IDC_SPIN_REARANGLE,"msctls_updown32",UDS_SETBUDDYINT | UDS_AUTOBUDDY | UDS_ARROWKEYS,226,192,10,14
+    EDITTEXT        IDC_EDIT_CROSSINGANGLE,175,210,53,14,ES_AUTOHSCROLL | ES_NUMBER,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_CROSSINGANGLE,"msctls_updown32",UDS_SETBUDDYINT | UDS_AUTOBUDDY | UDS_ARROWKEYS,226,210,10,14
+    PUSHBUTTON      "Analyze",IDC_BUTTON_ANALYZE,27,253,50,14
+    LTEXT           "",IDC_STATIC_PROGRESS,89,255,324,8
+    LTEXT           "Specify number of threads: ",IDC_STATIC_NUMOFTHREADS,28,239,90,8
+    EDITTEXT        IDC_EDIT_NUMOFTHREADS,119,236,40,14,ES_AUTOHSCROLL | ES_NUMBER,WS_EX_RIGHT
+    CONTROL         "Calculate mTTC, mPET, P(UEA)",IDC_CHECK_PUEA,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,315,238,115,10
+    CONTROL         "Ouput trj files in Text Format",IDC_CHECK_TRJTOTEXT,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,175,238,109,10
+    PUSHBUTTON      "Click here for Conflict Angle Diagram",IDC_BUTTON1,111,176,126,14
+END
+
+IDD_DIALOG_CONFLICTS DIALOGEX 0, 0, 981, 378
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_LIST_CONFLICTS,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,20,967,333
+    PUSHBUTTON      "Export to csv file...",IDC_BUTTON_EXPORT,7,357,105,14
+    LTEXT           "NO FILTER APPLIED",IDC_STATIC_FILTERMSG,173,9,129,8
+END
+
+IDD_DIALOG_SUMMARY DIALOGEX 0, 0, 519, 358
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_LIST_MEASURES,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,20,505,176
+    CONTROL         "",IDC_LIST_CONFLICTS,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,201,505,126
+    PUSHBUTTON      "Export to csv file...",IDC_BUTTON_EXPORT,9,331,104,14
+    LTEXT           "NO FILTER APPLIED",IDC_STATIC_FILTERMSG,173,9,129,8
+END
+
+IDD_DIALOG_OSGVIEWER DIALOGEX 0, 0, 800, 370
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "map",IDC_STATIC,7,7,14,8
+    LTEXT           "map",IDC_STATIC,779,7,14,8
+    LTEXT           "map",IDC_STATIC,7,355,14,8
+    LTEXT           "map",IDC_STATIC,779,355,14,8
+END
+
+IDD_DIALOG_MAP DIALOGEX 0, 0, 981, 386
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "Conflict Type",IDC_RADIO_TYPE,"Button",BS_AUTORADIOBUTTON | WS_GROUP,14,240,58,10
+    CONTROL         "Conflict Severity",IDC_RADIO_SEVERITY,"Button",BS_AUTORADIOBUTTON,96,240,69,10
+    COMBOBOX        IDC_COMBO_MAPTYPES,50,16,64,54,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "Edit background image",IDC_BUTTON_EDITMAP,13,50,84,14
+    EDITTEXT        IDC_EDIT_ULX,66,85,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    EDITTEXT        IDC_EDIT_ULY,119,85,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    EDITTEXT        IDC_EDIT_LRX,66,104,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    EDITTEXT        IDC_EDIT_LRY,120,104,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    PUSHBUTTON      "Set",IDC_BUTTON_EDIT,108,68,50,14
+    PUSHBUTTON      "+",IDC_BUTTON_SCALEUPICON,95,127,27,14
+    PUSHBUTTON      "-",IDC_BUTTON_SCALEDOWNICON,132,127,26,14
+    COMBOBOX        IDC_COMBO_CROSSING,62,170,61,42,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_COMBO_LANECHANGE,62,203,61,46,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_COMBO_READEND,62,186,61,47,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "",IDC_STATIC_OSGVIEWER,174,12,800,367
+    LTEXT           "Scale conflict icons: ",IDC_STATIC_SCALE,14,130,65,8
+    LTEXT           "Conflicts type display configuration:",IDC_STATIC_SHAPE,14,154,116,8
+    LTEXT           "Crossing:",IDC_STATIC_CROSSING,14,170,31,8
+    LTEXT           "Lane change: ",IDC_STATIC_LANECHANGE,14,203,46,8
+    LTEXT           "Rear end:",IDC_STATIC_REAREND,14,186,33,8
+    LTEXT           "Color configurations based on:",IDC_STATIC_COLOR,14,226,99,8
+    PUSHBUTTON      "TTC=0 Color",IDC_BUTTON_COLOR00,95,256,70,14,WS_DISABLED
+    PUSHBUTTON      "TTC<=0.5 Color",IDC_BUTTON_COLOR05,95,274,70,14,WS_DISABLED
+    PUSHBUTTON      "TTC<=1.0 Color",IDC_BUTTON_COLOR10,95,292,70,14,WS_DISABLED
+    PUSHBUTTON      "TTC<=1.5 Color",IDC_BUTTON_COLOR15,95,310,70,14,WS_DISABLED
+    PUSHBUTTON      "Crossing color",IDC_BUTTON_COLORCR,13,256,70,14
+    PUSHBUTTON      "LaneChange color",IDC_BUTTON_COLORLC,13,292,70,14
+    PUSHBUTTON      "RearEnd color",IDC_BUTTON_COLORRE,13,274,70,14
+    LTEXT           "Conflicts:",IDC_STATIC,13,336,31,8
+    LTEXT           "Static",IDC_STATIC_NUMOFCONFLICTS,47,336,75,8
+    PUSHBUTTON      "Apply changes",IDC_BUTTON_SHOWCONFLICTS,9,351,57,14
+    PUSHBUTTON      "Save image",IDC_BUTTON_SAVEIMAGE,69,351,45,14
+    LTEXT           "",IDC_STATIC,13,35,8,8
+    LTEXT           "None",IDC_STATIC_MAP,14,35,138,8
+    LTEXT           "Background Image Coord:",IDC_STATIC,13,72,89,8
+    LTEXT           "Upper-left:",IDC_STATIC,13,88,36,8
+    LTEXT           "Lower-right:",IDC_STATIC,13,107,40,8
+    LTEXT           "x",IDC_STATIC,57,88,8,8
+    LTEXT           "y",IDC_STATIC,111,88,8,8
+    LTEXT           "x",IDC_STATIC,58,106,8,8
+    LTEXT           "y",IDC_STATIC,112,106,8,8
+    LTEXT           "Map Type:",IDC_STATIC,13,17,35,8
+    LTEXT           "Grid Size: ",IDC_STATIC_GRID,13,182,33,8
+    EDITTEXT        IDC_EDIT_GRIDSIZE,48,180,58,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    LTEXT           "Network dimensions:",IDC_STATIC_DIMENSIONS,13,133,67,8
+    LTEXT           "X Range: ",IDC_STATIC_XRANGE,13,148,32,8
+    LTEXT           "Y Range:",IDC_STATIC_YRANGE,13,164,30,8
+    LTEXT           "Static",IDC_STATIC_XRANGEVAL,49,148,108,8
+    LTEXT           "Static",IDC_STATIC_YRANGEVAL,49,164,109,8
+    LTEXT           "Static",IDC_STATIC_UNIT,86,133,71,8
+    LTEXT           "Number of Levels:",IDC_STATIC_NLEVELS,13,202,59,8
+    EDITTEXT        IDC_EDIT_NLEVELS,73,199,58,14,ES_AUTOHSCROLL | ES_NUMBER,WS_EX_RIGHT
+    LTEXT           "Interval: ",IDC_STATIC_INTERVAL,13,221,31,8
+    COMBOBOX        IDC_COMBO_INTERVALS,43,218,55,51,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "Color",IDC_BUTTON_INTERVALCOLOR,108,218,56,14
+    LTEXT           "Bar Colors:",IDC_STATIC_BARCOLOR,14,241,36,8
+    PUSHBUTTON      "Reset",IDC_BUTTON_FIT,117,15,42,14
+    LTEXT           "Loading map...",IDC_STATIC_LOADSTATUS,237,130,200,8,NOT WS_VISIBLE
+    PUSHBUTTON      "Delete IMG",IDC_BUTTON_DELETEIMG,109,50,50,14
+    PUSHBUTTON      "Map switch",IDC_BUTTON_MAPSWITCH,116,351,50,14,NOT WS_VISIBLE
+END
+
+IDD_DIALOG_MAPCOORD DIALOGEX 0, 0, 229, 150
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Map Coordinates"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,51,128,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,105,128,50,14
+    LTEXT           "Static",IDC_STATIC_MSG,24,20,187,72
+    EDITTEXT        IDC_EDIT_COORD,22,107,190,14,ES_AUTOHSCROLL
+END
+
+IDD_DIALOG_FILTER DIALOGEX 0, 0, 560, 358
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    GROUPBOX        "Filter Surrogate Thresholds",IDC_STATIC,10,9,536,119
+    EDITTEXT        IDC_EDIT_MINMAXDELTAV,16,110,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MINMAXDELTAV,"msctls_updown32",UDS_ARROWKEYS,56,110,10,14
+    LTEXT           "<= MaxDeltaV <=",IDC_STATIC,68,113,60,8
+    EDITTEXT        IDC_EDIT_MAXMAXDELTAV,130,110,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MAXMAXDELTAV,"msctls_updown32",UDS_ARROWKEYS,170,110,11,14
+    LTEXT           "N/A",IDC_STATIC,183,112,13,8
+    EDITTEXT        IDC_EDIT_MINTTC,16,19,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MINTTC,"msctls_updown32",UDS_ARROWKEYS,56,19,11,14
+    LTEXT           "<=      TTC      <=",IDC_STATIC,69,21,59,8
+    EDITTEXT        IDC_EDIT_MAXTTC,130,19,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MAXTTC,"msctls_updown32",UDS_ARROWKEYS,170,19,11,14
+    LTEXT           "Seconds",IDC_STATIC,183,21,28,8
+    EDITTEXT        IDC_EDIT_MINPET,16,35,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MINPET,"msctls_updown32",UDS_ARROWKEYS,56,35,11,14
+    LTEXT           "<=      PET      <=",IDC_STATIC,69,37,58,8
+    EDITTEXT        IDC_EDIT_MAXPET,130,35,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MAXPET,"msctls_updown32",UDS_ARROWKEYS,170,35,11,14
+    LTEXT           "Seconds",IDC_STATIC,183,37,28,8
+    EDITTEXT        IDC_EDIT_MINMAXS,16,50,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MINMAXS,"msctls_updown32",UDS_ARROWKEYS,56,50,11,14
+    LTEXT           "<=      MaxS    <=",IDC_STATIC,68,51,60,8
+    EDITTEXT        IDC_EDIT_MAXMAXS,130,50,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MAXMAXS,"msctls_updown32",UDS_ARROWKEYS,170,50,11,14
+    LTEXT           "N/A",IDC_STATIC,182,51,13,8
+    EDITTEXT        IDC_EDIT_MINDELTAS,16,65,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MINDELTAS,"msctls_updown32",UDS_ARROWKEYS,56,65,11,14
+    LTEXT           "<=     DeltaS   <=",IDC_STATIC,68,66,59,8
+    EDITTEXT        IDC_EDIT_MAXDELTAS,130,65,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MAXDELTAS,"msctls_updown32",UDS_ARROWKEYS,170,65,11,14
+    LTEXT           "N/A",IDC_STATIC,182,66,13,8
+    EDITTEXT        IDC_EDIT_MINDR,16,80,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MINDR,"msctls_updown32",UDS_ARROWKEYS,56,80,11,14
+    LTEXT           "<=     DR         <=",IDC_STATIC,68,81,60,8
+    EDITTEXT        IDC_EDIT_MAXDR,130,80,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MAXDR,"msctls_updown32",UDS_ARROWKEYS,170,80,11,14
+    LTEXT           "N/A",IDC_STATIC,182,81,13,8
+    EDITTEXT        IDC_EDIT_MINMAXD,16,95,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MINMAXD,"msctls_updown32",UDS_ARROWKEYS,56,95,11,14
+    LTEXT           "<=      MaxD    <=",IDC_STATIC,68,96,60,8
+    EDITTEXT        IDC_EDIT_MAXMAXD,130,95,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_MAXMAXD,"msctls_updown32",UDS_ARROWKEYS,170,95,11,14
+    LTEXT           "N/A",IDC_STATIC,182,96,13,8
+    GROUPBOX        "Filter Conflict Type",IDC_STATIC,10,131,536,63
+    LTEXT           "Include Conflict Types:",IDC_STATIC,17,156,74,8
+    LISTBOX         IDC_LIST_CONFLICTTYPES,93,140,156,49,LBS_MULTIPLESEL | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "Filter Links",IDC_STATIC,10,196,536,50
+    GROUPBOX        "Filter TRJ Files",IDC_STATIC,10,248,536,46
+    GROUPBOX        "Filter Area",IDC_STATIC,10,296,535,40
+    PUSHBUTTON      "Apply",IDC_BUTTON_APPLY,9,337,50,14
+    PUSHBUTTON      "Restore Default",IDC_BUTTON_RECTOREDEFAULT,61,337,71,14
+    LTEXT           "Lower Left(x,y):",IDC_STATIC,16,309,54,8
+    LTEXT           "Upper Right(x.y):",IDC_STATIC,15,323,58,8
+    EDITTEXT        IDC_EDIT_LLX,77,306,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    EDITTEXT        IDC_EDIT_LLY,131,306,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    EDITTEXT        IDC_EDIT_URX,77,321,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    EDITTEXT        IDC_EDIT_URY,131,321,40,14,ES_AUTOHSCROLL,WS_EX_RIGHT
+    CONTROL         "",IDC_SPIN_LLX,"msctls_updown32",UDS_ARROWKEYS,116,306,10,14
+    CONTROL         "",IDC_SPIN_LLY,"msctls_updown32",UDS_ARROWKEYS,170,306,10,14
+    CONTROL         "",IDC_SPIN_URX,"msctls_updown32",UDS_ARROWKEYS,116,321,10,14
+    CONTROL         "",IDC_SPIN_URY,"msctls_updown32",UDS_ARROWKEYS,170,321,10,14
+    LTEXT           "Include TRJ Files:",IDC_STATIC,17,268,57,8
+    LISTBOX         IDC_LIST_TRJFILES,76,255,463,36,LBS_SORT | LBS_MULTIPLESEL | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Include Links:",IDC_STATIC,18,219,44,8
+    LISTBOX         IDC_LIST_LINKS,77,206,161,36,LBS_MULTIPLESEL | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+END
+
+IDD_DIALOG_TTEST DIALOGEX 0, 0, 560, 358
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    GROUPBOX        "SSAM Files",IDC_STATIC,9,8,537,61
+    LTEXT           "SSAM Files:",IDC_STATIC,17,22,38,8
+    LTEXT           "",IDC_STATIC_FILE1,130,22,368,8
+    PUSHBUTTON      "Compare opened file with",IDC_BUTTON_ADDFILE,16,35,104,14
+    PUSHBUTTON      "Delete",IDC_BUTTON_DELETEFILE,16,52,104,14
+    GROUPBOX        "ttest configuration",IDC_STATIC,9,72,537,40
+    LTEXT           "",IDC_STATIC_FILE2,130,44,404,8
+    LTEXT           "T test Significant Level(alpha1):",IDC_STATIC,18,91,102,8
+    COMBOBOX        IDC_COMBO_ALPHA,121,89,48,72,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "F test Significant Level(alpha2):",IDC_STATIC,175,91,102,8
+    COMBOBOX        IDC_COMBO_FALPHA,278,89,48,80,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "data set to be analyzed:",IDC_STATIC,334,91,80,8
+    LISTBOX         IDC_LIST_DATASET,417,81,48,23,LBS_SORT | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "Analyze",IDC_BUTTON_ANALYZE,9,115,50,14
+    PUSHBUTTON      "Export",IDC_BUTTON_EXPORT,61,115,50,14
+    LTEXT           "t test has not been applied",IDC_STATIC_MSG,199,119,173,8
+    CONTROL         "",IDC_LIST_MEASURES,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,11,133,534,198
+    CONTROL         "",IDC_LIST_CONFLICTS,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | NOT WS_VISIBLE | WS_BORDER | WS_TABSTOP,11,234,534,97
+END
+
+IDD_DIALOG_CONFLICTPROP DIALOGEX 0, 0, 453, 121
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Conflict Point Properties"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_LIST_CONFLICTS,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,439,89
+    LTEXT           "",IDC_STATIC_TOTAL,10,100,110,8
+END
+
+IDD_DIALOG_DIAGRAM DIALOGEX 0, 0, 377, 245
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Threshold Angle Diagram"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         142,IDC_DIAGRAM,"Static",SS_BITMAP,7,7,324,229
+END
+
+IDD_DIALOG_HTML_TERMS DIALOGEX 0, 0, 479, 541
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_MAXIMIZEBOX | WS_POPUP | WS_CAPTION | WS_VSCROLL | WS_SYSMENU | WS_THICKFRAME
+CAPTION "SSAM Software Terms of Use and Disclaimer"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,358,520,50,14,NOT WS_VISIBLE
+    PUSHBUTTON      "Cancel",IDCANCEL,411,520,50,14,NOT WS_VISIBLE
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "TODO: <Company name>"
+            VALUE "FileDescription", "OpenSSAM"
+            VALUE "FileVersion", "1.0.0.1"
+            VALUE "InternalName", "OpenSSAM"
+            VALUE "LegalCopyright", "TODO: (c) <Company name>.  All rights reserved."
+            VALUE "OriginalFilename", "OpenSSAM.exe"
+            VALUE "ProductName", "OpenSSAM"
+            VALUE "ProductVersion", "1.0.0.1"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_ABOUTBOX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 340
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 159
+    END
+
+    IDD_SSAMAPP_DIALOG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 992
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 408
+    END
+
+    IDD_DIALOG_CONFIGURE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 597
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 403
+    END
+
+    IDD_DIALOG_CONFLICTS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 974
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 371
+    END
+
+    IDD_DIALOG_SUMMARY, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 512
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 351
+    END
+
+    IDD_DIALOG_OSGVIEWER, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 793
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 363
+    END
+
+    IDD_DIALOG_MAP, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 974
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 379
+    END
+
+    IDD_DIALOG_MAPCOORD, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 222
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 143
+    END
+
+    IDD_DIALOG_FILTER, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 553
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 351
+    END
+
+    IDD_DIALOG_TTEST, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 553
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 351
+    END
+
+    IDD_DIALOG_CONFLICTPROP, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 446
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 114
+    END
+
+    IDD_DIALOG_DIAGRAM, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 370
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 238
+    END
+
+    IDD_DIALOG_HTML_TERMS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 461
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 534
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDB_BITMAP1             BITMAP                  "images\\diagram.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// HTML
+//
+
+IDR_HTML_DLG_HTMLTERMS  HTML                    "Dlg_HTMLTerms.htm"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+    IDS_ABOUTBOX            "&About OpenSSAM..."
+END
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#define _AFX_NO_SPLITTER_RESOURCES
+#define _AFX_NO_OLE_RESOURCES
+#define _AFX_NO_TRACKER_RESOURCES
+#define _AFX_NO_PROPERTY_RESOURCES
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE 9, 1
+#include "res\SSAMAPP.rc2"  // non-Microsoft Visual C++ edited resources
+#include "afxres.rc"      // Standard components
+#if !defined(_AFXDLL)
+#include "afxribbon.rc"   // MFC ribbon and control bar resources
+#endif
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+
+

@@ -1,0 +1,26 @@
+# Visual Studio local state
+.vs/
+*.suo
+*.user
+*.VC.db
+*.VC.opendb
+AGENTS.md
+
+# Local notes or private scratch files
+.notes/
+.local/
+tmp/
+.deps/
+dist/
+
+# Modern build outputs and copied runtime artifacts
+modern/SSAM3/WorkingDir/
+modern/SSAM3/WorkingDirDebug/
+modern/SSAMDLL/bin/
+modern/SSAMDLL/lib/
+
+# Common Visual Studio intermediate/output folders under modern
+modern/**/Debug/
+modern/**/Release/
+modern/**/x64/
+modern/**/Win32/
