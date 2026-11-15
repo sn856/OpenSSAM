@@ -46,11 +46,7 @@ CDlg_Configure::CDlg_Configure(SP_SSAMDoc pSSAMDoc, CWnd* pParent)
 	, m_IsCalcPUEA(0)
 	, m_IsWriteDat(0)
 {
-#ifdef _OPENMP_LOCAL
-	m_NumOfThreads = omp_get_num_procs() / 2;
-#else
-	m_NumOfThreads = 1;
-#endif
+	m_NumOfThreads = SSAMFuncs::DefaultNThreads();
 }
 
 CDlg_Configure::~CDlg_Configure()

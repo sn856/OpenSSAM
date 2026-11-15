@@ -5,9 +5,248 @@
 #include<cfloat>
 #include<cmath>
 #include <iomanip>
+#include <chrono>
+#include <cstdlib>
+#include <cstring>
+#include <vector>
+#include <deque>
+#include <algorithm>
+#include <exception>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 using namespace std;
 using namespace SSAMFuncs;
+
+// Section timing for profiling. Printed only when env var SSAM_PROFILE is set.
+namespace
+{
+	typedef std::chrono::steady_clock ProfClock;
+	double g_ProfLinkSec = 0, g_ProfGridSec = 0, g_ProfEventSec = 0, g_ProfReadSec = 0;
+	long long g_ProfVehicles = 0, g_ProfEventCalls = 0, g_ProfSteps = 0;
+	double ProfSince(ProfClock::time_point t0)
+	{
+		return std::chrono::duration<double>(ProfClock::now() - t0).count();
+	}
+
+	// Chunk size for reading little-endian TRJ files. Tunable; must be larger than one record.
+	const size_t TRJ_CHUNK_SIZE = 4 * 1024 * 1024;
+
+	// Reads a TRJ file in large chunks and hands out records from memory.
+	// A record that straddles a chunk boundary is completed by the next chunk.
+	class TrjChunkReader
+	{
+	public:
+		explicit TrjChunkReader(std::ifstream& in)
+			: m_In(in), m_Buf(TRJ_CHUNK_SIZE), m_Pos(0), m_End(0)
+		{}
+
+		// Returns a pointer to the next n bytes and consumes them.
+		// Returns NULL, consuming nothing, when the file has fewer than n bytes left.
+		const char* Take(size_t n)
+		{
+			if (m_End - m_Pos < n && !Fill(n))
+				return NULL;
+			const char* p = &m_Buf[m_Pos];
+			m_Pos += n;
+			return p;
+		}
+	private:
+		bool Fill(size_t n)
+		{
+			size_t rest = m_End - m_Pos;
+			if (rest > 0 && m_Pos > 0)
+				memmove(&m_Buf[0], &m_Buf[m_Pos], rest);
+			m_Pos = 0;
+			m_End = rest;
+			while (m_End < n && m_In.good())
+			{
+				m_In.read(&m_Buf[m_End], std::streamsize(m_Buf.size() - m_End));
+				m_End += size_t(m_In.gcount());
+			}
+			return m_End >= n;
+		}
+
+		std::ifstream& m_In;
+		std::vector<char> m_Buf;
+		size_t m_Pos, m_End;
+	};
+
+	inline int ChunkInt(const char* p)
+	{
+		int x = 0;
+		memcpy(&x, p, sizeof(int));
+		return x;
+	}
+
+	inline float ChunkFloat(const char* p)
+	{
+		float x = 0.0;
+		memcpy(&x, p, sizeof(float));
+		return x;
+	}
+
+	// Closes the TRJ file and the TRJ text file when Analyze() is left by an exception.
+	struct TrjFileCloser
+	{
+		TrjFileCloser(std::ifstream& trj, std::ofstream& dat) : m_Trj(trj), m_Dat(dat) {}
+		~TrjFileCloser()
+		{
+			if (m_Trj.is_open())
+				m_Trj.close();
+			if (m_Dat.is_open())
+				m_Dat.close();
+		}
+		std::ifstream& m_Trj;
+		std::ofstream& m_Dat;
+	};
+
+	// Time the analysis side waited for the reader thread.
+	double g_ProfWaitSec = 0;
+	bool g_ProfReaderOn = false;
+
+	// Number of time steps the reader thread may read ahead of the analysis. Tunable.
+	const size_t TRJ_READ_AHEAD_STEPS = 64;
+
+	// Linking, projections and overlap checks are split across threads only when nthreads >= 2.
+	// Every parallel region uses nthreads threads: changing the team size between regions is slow.
+	// Smallest number of vehicles in a time step for which projections and overlap checks
+	// are split across threads. Smaller steps run on the calling thread. Tunable.
+	const int PARALLEL_MIN_VEHICLES = 64;
+	// Smallest number of ID index entries per thread for which linking is split across threads.
+	// Otherwise linking runs on the calling thread. Tunable.
+	const int LINKS_PER_THREAD = 256;
+
+	// Keeps the exception of the lowest index thrown inside a parallel region.
+	// Rethrow() throws it again on the calling thread after the region.
+	class ParallelError
+	{
+	public:
+		ParallelError() : m_Index(-1) {}
+		// Call inside a catch block.
+		void Set(int index)
+		{
+#ifdef _OPENMP_LOCAL
+			#pragma omp critical (PARALLELERROR)
+#endif
+			if (m_Index < 0 || index < m_Index)
+			{
+				m_Index = index;
+				m_Error = std::current_exception();
+			}
+		}
+		bool HasError() const { return m_Index >= 0; }
+		void Rethrow()
+		{
+			if (m_Index >= 0)
+				std::rethrow_exception(m_Error);
+		}
+	private:
+		int m_Index;
+		std::exception_ptr m_Error;
+	};
+
+	// False when env var SSAM_READER_THREAD is "0": read on the calling thread.
+	bool UseReaderThread()
+	{
+		const char* v = std::getenv("SSAM_READER_THREAD");
+		return !(v != NULL && std::strcmp(v, "0") == 0);
+	}
+
+	// One hand-over from the reader thread to the analysis side.
+	struct TrjStepItem
+	{
+		enum Kind { TIMESTEP, END, FAILED };
+		Kind m_Kind;
+		float m_Time; // TIMESTEP: time of the time step record just read
+		SP_TimeStepData m_pStep; // TIMESTEP: the previous, complete step (may be NULL); END, FAILED: the step being read
+		std::exception_ptr m_Error; // FAILED: the read error
+		TrjStepItem() : m_Kind(END), m_Time(0) {}
+	};
+
+	// Thrown in the reader thread when the analysis side stopped the queue.
+	struct TrjReaderStopped {};
+
+	// Bounded queue from the reader thread to the analysis side.
+	class TrjStepQueue
+	{
+	public:
+		TrjStepQueue() : m_Stopped(false), m_ReaderDone(false) {}
+
+		// Reader side. Waits while the queue is full. Throws TrjReaderStopped after Stop().
+		void Push(TrjStepItem&& item)
+		{
+			std::unique_lock<std::mutex> lock(m_Mutex);
+			m_NotFull.wait(lock, [this] { return m_Stopped || m_Items.size() < TRJ_READ_AHEAD_STEPS; });
+			if (m_Stopped)
+				throw TrjReaderStopped();
+			m_Items.push_back(std::move(item));
+			m_NotEmpty.notify_one();
+		}
+
+		// Analysis side. Waits while the queue is empty and adds the wait time to waitSec.
+		TrjStepItem Pop(double& waitSec)
+		{
+			std::unique_lock<std::mutex> lock(m_Mutex);
+			if (m_Items.empty())
+			{
+				ProfClock::time_point t0 = ProfClock::now();
+				m_NotEmpty.wait(lock, [this] { return !m_Items.empty() || m_ReaderDone; });
+				waitSec += ProfSince(t0);
+			}
+			if (m_Items.empty())
+			{
+				// The reader ended without handing over END or FAILED (its last Push threw).
+				TrjStepItem failed;
+				failed.m_Kind = TrjStepItem::FAILED;
+				failed.m_Error = std::make_exception_ptr(SSAMException("TRJ reader thread ended unexpectedly."));
+				return failed;
+			}
+			TrjStepItem item = std::move(m_Items.front());
+			m_Items.pop_front();
+			m_NotFull.notify_one();
+			return item;
+		}
+
+		void Stop()
+		{
+			std::lock_guard<std::mutex> lock(m_Mutex);
+			m_Stopped = true;
+			m_NotFull.notify_all();
+		}
+
+		// Reader side, last call of the reader thread on every path.
+		void MarkReaderDone()
+		{
+			std::lock_guard<std::mutex> lock(m_Mutex);
+			m_ReaderDone = true;
+			m_NotEmpty.notify_all();
+		}
+	private:
+		std::mutex m_Mutex;
+		std::condition_variable m_NotFull, m_NotEmpty;
+		std::deque<TrjStepItem> m_Items;
+		bool m_Stopped;
+		bool m_ReaderDone;
+	};
+
+	// Stops and joins the reader thread when the analysis side is left by an exception.
+	struct TrjReaderJoiner
+	{
+		TrjReaderJoiner(TrjStepQueue& q, std::thread& th) : m_Queue(q), m_Thread(th) {}
+		~TrjReaderJoiner()
+		{
+			if (m_Thread.joinable())
+			{
+				m_Queue.Stop();
+				m_Thread.join();
+			}
+		}
+		TrjStepQueue& m_Queue;
+		std::thread& m_Thread;
+	};
+}
 
 const float SSAM::DEFAULT_TTC = 1.5; 
 const float SSAM::DEFAULT_PET = 5.0; 
@@ -17,7 +256,7 @@ SSAM::SSAM()
 	, m_MaxPET(DEFAULT_PET)
 	, m_RearEndAngleThreshold(DEFAULT_REARENDANGLE)
 	, m_CrossingAngleThreshold(DEFAULT_CROSSINGANGLE)
-	, m_NThreads (1)
+	, m_NThreads (DefaultNThreads())
 	, m_IsWriteDat(false)
 	, m_IsCalcPUEA(false)
 	, m_Units(0)
@@ -43,6 +282,11 @@ SSAM::~SSAM()
 
 void SSAM::Initialize()
 {
+	if (m_MaxPET <= 0)
+		throw SSAMException("Maximum PET must be greater than 0.");
+	if (m_NThreads < 1)
+		throw SSAMException("Number of threads must be 1 or greater.");
+
 	m_InitEventParams.m_V1 = NULL;
 	m_InitEventParams.m_V2 = NULL;
 	m_InitEventParams.m_MaxTTC = m_MaxTTC;
@@ -62,6 +306,38 @@ void SSAM::Terminate()
 	CalcSummaries();
 	m_EndTime = std::clock();	
 	m_AnalysisTime = m_EndTime - m_StartTime;
+
+	// Verification-only dump of per-conflict P(UEA) values. Written only when SSAM_VERIFY_DUMP names a file.
+	const char* verifyDumpPath = std::getenv("SSAM_VERIFY_DUMP");
+	if (verifyDumpPath != NULL && verifyDumpPath[0] != '\0')
+	{
+		std::ofstream dump(verifyDumpPath);
+		dump << std::setprecision(9);
+		for (std::list<SP_Conflict>::iterator it = m_ConflictList.begin();
+			it != m_ConflictList.end(); ++it)
+		{
+			SP_Conflict c = *it;
+			dump << c->trjFile << "," << c->FirstVID << "," << c->SecondVID << ","
+				<< c->tMinTTC << "," << c->PUEA << "," << c->mTTC << "," << c->mPET << "\n";
+		}
+	}
+
+	if (std::getenv("SSAM_PROFILE") != NULL)
+	{
+		double total = double(m_AnalysisTime) / CLOCKS_PER_SEC;
+		std::cout << "[profile] total=" << total << "s"
+			<< " link=" << g_ProfLinkSec << "s"
+			<< " grid=" << g_ProfGridSec << "s"
+			<< " events=" << g_ProfEventSec << "s"
+			<< " read=" << g_ProfReadSec << "s"
+			<< " other=" << (total - g_ProfLinkSec - g_ProfGridSec - g_ProfEventSec - g_ProfReadSec) << "s\n"
+			<< "[profile] steps=" << g_ProfSteps
+			<< " vehicleRecords=" << g_ProfVehicles
+			<< " eventAnalyzeCalls=" << g_ProfEventCalls
+			<< " conflicts=" << m_ConflictList.size() << std::endl;
+		std::cout << "[profile] reader=" << (g_ProfReaderOn ? "on" : "off")
+			<< " wait=" << g_ProfWaitSec << "s" << std::endl;
+	}
 }
 
 void SSAM::Analyze()
@@ -74,8 +350,12 @@ void SSAM::Analyze()
 }
 
 void SSAM::Analyze(const std::list<std::string>& trjFileNames)
-{	
+{
 	Initialize();
+	// Profile totals are per analysis run (the GUI may analyze several times in one process).
+	g_ProfLinkSec = g_ProfGridSec = g_ProfEventSec = g_ProfReadSec = g_ProfWaitSec = 0;
+	g_ProfVehicles = g_ProfEventCalls = g_ProfSteps = 0;
+	g_ProfReaderOn = false;
 	for (std::list<std::string>::const_iterator it = trjFileNames.begin();
 		it != trjFileNames.end(); ++it)
 	{
@@ -86,6 +366,7 @@ void SSAM::Analyze(const std::list<std::string>& trjFileNames)
 		if (m_TrjSrcName.substr(m_TrjSrcName.length() - 4, 4) != ".trj")
 			throw SSAMException("File \"" + m_TrjSrcName + "\" is not a .trj file."); 
 
+		TrjFileCloser fileCloser(m_TrjFile, m_DatFile);
 		m_TrjFile.open(m_TrjSrcName, std::ifstream::binary);
 		if(!m_TrjFile.good()) 
 			throw SSAMException("File \"" + m_TrjSrcName + "\" does not exist.");
@@ -117,28 +398,186 @@ void SSAM::Analyze(const std::list<std::string>& trjFileNames)
 		m_EventList.clear();
 		m_pCurStep = NULL;
 		
-		char typeChar;
-		while (m_TrjFile.get(typeChar))
+		ProfClock::time_point profRead0 = ProfClock::now();
+		double profStepSec = 0;
+		// Reads the body records. onTimeStep(t) handles a time step record; curStep receives the vehicles.
+		auto readBody = [&](SP_TimeStepData& curStep, auto onTimeStep)
 		{
-			int recordType = typeChar;
-			if (recordType == TrjRecord::TIMESTEP)
+			if (m_Format.m_Endian == 'L')
 			{
-				float t = ReadFloat(m_TrjFile);
+				// Little-endian file: read in chunks and take the values from memory.
+				const bool hasZ = m_Format.m_Version > ORIG_FORMAT_VERSION;
+				const size_t vehicleSize = 2 * INT_SIZE + 1 + (hasZ ? 10 : 8) * FLOAT_SIZE;
+				TrjChunkReader reader(m_TrjFile);
+				const char* p;
+				while ((p = reader.Take(1)) != NULL)
+				{
+					int recordType = *p;
+					if (recordType == TrjRecord::TIMESTEP)
+					{
+						p = reader.Take(FLOAT_SIZE);
+						if (p == NULL)
+							throw SSAMException("file reading failed");
+						onTimeStep(ChunkFloat(p));
+					} else if (recordType == TrjRecord::VEHICLE)
+					{
+						SP_Vehicle v = std::make_shared<Vehicle>();
+						v->SetTimeStep(curStep->GetTimestep());
+						p = reader.Take(vehicleSize);
+						if (p == NULL)
+						{
+							SSAMException e("file reading failed");
+							std::string errMsg("Error in reading vehicle record: ");
+							ThrowFileReadingException(e, errMsg);
+						}
+						// Same order of calls as ReadVehicle().
+						v->SetVehicleID(ChunkInt(p));
+						v->SetLinkID(ChunkInt(p + INT_SIZE));
+						v->SetLaneID(p[2 * INT_SIZE]);
+						const char* pf = p + 2 * INT_SIZE + 1;
+						float vFrontX = ChunkFloat(pf);
+						float vFrontY = ChunkFloat(pf + FLOAT_SIZE);
+						float vRearX = ChunkFloat(pf + 2 * FLOAT_SIZE);
+						float vRearY = ChunkFloat(pf + 3 * FLOAT_SIZE);
+						v->setScale(m_pDimensions->GetScale());
+						v->SetLength(ChunkFloat(pf + 4 * FLOAT_SIZE));
+						v->SetWidth(ChunkFloat(pf + 5 * FLOAT_SIZE));
+						v->SetSpeed(ChunkFloat(pf + 6 * FLOAT_SIZE));
+						v->SetAcceleration(ChunkFloat(pf + 7 * FLOAT_SIZE));
+						v->SetPosition(vFrontX, vFrontY, vRearX, vRearY);
+						if (hasZ)
+						{
+							v->SetFrontZ(ChunkFloat(pf + 8 * FLOAT_SIZE));
+							v->SetRearZ(ChunkFloat(pf + 9 * FLOAT_SIZE));
+						}
+						if (m_IsWriteDat)
+							v->Print(m_DatFile, m_Format.m_Version);
+						if ( ValidateVehicle(v))
+						{
+							int vID = v->GetVehicleID();
+							curStep->AddVehicle(vID, std::move(v));
+						}
+					} else
+					{
+						throw SSAMException("Invalid trajectory record type (outside of header): " + std::to_string(recordType));
+					}
+				}
+			}
+
+			// Big-endian file: the existing per-field reading.
+			char typeChar;
+			while (m_Format.m_Endian != 'L' && m_TrjFile.get(typeChar))
+			{
+				int recordType = typeChar;
+				if (recordType == TrjRecord::TIMESTEP)
+				{
+					float t = ReadFloat(m_TrjFile);
+					onTimeStep(t);
+				} else if (recordType == TrjRecord::VEHICLE)
+				{
+					SP_Vehicle v = std::make_shared<Vehicle>();
+					v->SetTimeStep(curStep->GetTimestep());
+					ReadVehicle(v);
+					if (m_IsWriteDat)
+						v->Print(m_DatFile, m_Format.m_Version);
+					if ( ValidateVehicle(v))
+					{
+						int vID = v->GetVehicleID();
+						curStep->AddVehicle(vID, std::move(v));
+					}
+				} else
+				{
+					throw SSAMException("Invalid trajectory record type (outside of header): " + std::to_string(recordType));
+				}
+			}
+		};
+
+		if (!UseReaderThread())
+		{
+			// Read and analyze on the calling thread.
+			readBody(m_pCurStep, [&](float t)
+			{
+				ProfClock::time_point profStep0 = ProfClock::now();
 				SetTimeStep(t);
-			} else if (recordType == TrjRecord::VEHICLE)
+				profStepSec += ProfSince(profStep0);
+			});
+		} else
+		{
+			// The reader thread reads, builds the steps and writes the TRJ text file.
+			// The calling thread analyzes the steps in file order, as SetTimeStep() does.
+			g_ProfReaderOn = true;
+			TrjStepQueue queue;
+			std::thread readerThread([&]
 			{
-				SP_Vehicle v = std::make_shared<Vehicle>();
-				v->SetTimeStep(m_pCurStep->GetTimestep());
-				ReadVehicle(v); 
-				if (m_IsWriteDat)
-					v->Print(m_DatFile, m_Format.m_Version);
-				if ( ValidateVehicle(v)) 
-					m_pCurStep->AddVehicle(v->GetVehicleID(), v);
-			} else
+				SP_TimeStepData readStep;
+				try
+				{
+					readBody(readStep, [&](float t)
+					{
+						// SetTimeStep() without the analysis.
+						size_t nExpected = readStep ? readStep->GetVehicleVec()->size() : 0;
+						TrjStepItem item;
+						item.m_Kind = TrjStepItem::TIMESTEP;
+						item.m_Time = t;
+						item.m_pStep = std::move(readStep);
+						readStep = std::make_shared<TimeStepData>();
+						readStep->Reserve(nExpected);
+						readStep->SetTimestep(t);
+						if (m_IsWriteDat)
+							PrintTimeStep(t);
+						m_IsFirstTimeStep = false;
+						queue.Push(std::move(item));
+					});
+					TrjStepItem item;
+					item.m_Kind = TrjStepItem::END;
+					item.m_pStep = readStep;
+					queue.Push(std::move(item));
+				} catch (const TrjReaderStopped&)
+				{
+				} catch (...)
+				{
+					try
+					{
+						TrjStepItem item;
+						item.m_Kind = TrjStepItem::FAILED;
+						item.m_pStep = readStep;
+						item.m_Error = std::current_exception();
+						queue.Push(std::move(item));
+					} catch (...)
+					{
+					}
+				}
+				queue.MarkReaderDone();
+			});
+			TrjReaderJoiner readerJoiner(queue, readerThread);
+			double waitSec = 0;
+			for (;;)
 			{
-				throw SSAMException("Invalid trajectory record type (outside of header): " + std::to_string(recordType));
+				TrjStepItem item = queue.Pop(waitSec);
+				if (item.m_Kind != TrjStepItem::TIMESTEP)
+				{
+					readerThread.join();
+					g_ProfWaitSec += waitSec;
+					m_pCurStep = item.m_pStep;
+					if (item.m_Kind == TrjStepItem::FAILED)
+						std::rethrow_exception(item.m_Error);
+					break;
+				}
+				// SetTimeStep() on the analysis side.
+				ProfClock::time_point profStep0 = ProfClock::now();
+				m_pCurStep = std::move(item.m_pStep);
+				if (m_pCurStep)
+				{
+					AnalyzeOneStep();
+				}
+				if (m_IsPrintProgress && fmod(item.m_Time, 100) == 0)
+				{
+					std::cout << "Time: " << item.m_Time <<std::endl;
+				}
+				profStepSec += ProfSince(profStep0);
 			}
 		}
+		g_ProfReadSec += ProfSince(profRead0) - profStepSec;
 		CloseRun();
 		m_TrjFile.close();
 	}
@@ -230,7 +669,10 @@ void SSAM::SetTimeStep(float t)
 		AnalyzeOneStep();
 	}
 				
+	// The previous time step is the best guess for the number of vehicles of the new one.
+	size_t nExpected = m_pCurStep ? m_pCurStep->GetVehicleVec()->size() : 0;
 	m_pCurStep = std::make_shared<TimeStepData>();
+	m_pCurStep->Reserve(nExpected);
 	m_pCurStep->SetTimestep(t); // 
 	if (m_IsPrintProgress && fmod(t, 100) == 0)
 	{
@@ -252,7 +694,10 @@ void SSAM::SetVehicle(SP_Vehicle pVeh)
 	if (m_IsWriteDat)
 		v->Print(m_DatFile, m_Format.m_Version);
 	if ( ValidateVehicle(v)) 
-		m_pCurStep->AddVehicle(v->GetVehicleID(), v);
+	{
+		int vID = v->GetVehicleID();
+		m_pCurStep->AddVehicle(vID, std::move(v));
+	}
 }
 
 void SSAM::CloseRun()
@@ -346,36 +791,70 @@ void SSAM::ApplyDimensions()
 void SSAM::AnalyzeOneStep()
 {
 	m_ReadTimeStep = m_pCurStep->GetTimestep();
+	ProfClock::time_point profLink0 = ProfClock::now();
 
-	//	Link vehicles from this step to previous step	
+	//	Link vehicles from this step to previous step
+	m_pCurStep->SortIndex();
 	if(!m_StepDataList.empty())
 	{
-		std::map<int, SP_Vehicle> *prevStep = m_StepDataList.back()->GetVehicleMap();
-		if(prevStep == NULL)
-			throw SSAMException("Processing failed to link vehicle from previous timestep to current timestep.");
-				
-		std::map<int, SP_Vehicle>::iterator iVeh = prevStep->begin();
-		for(; iVeh != prevStep->end(); ++iVeh)
+		// Both ID indexes are sorted by vehicle ID: walk them together.
+		const std::vector<TimeStepData::IDIndexEntry>& prevIndex = m_StepDataList.back()->GetIDIndex();
+		const std::vector<TimeStepData::IDIndexEntry>& curIndex = m_pCurStep->GetIDIndex();
+		std::vector<SP_Vehicle>* prevVec = m_StepDataList.back()->GetVehicleVec();
+		std::vector<SP_Vehicle>* curVec = m_pCurStep->GetVehicleVec();
+		// Links the previous-step entries [iBegin, iEnd) of the ID index.
+		auto linkRange = [&](size_t iBegin, size_t iEnd)
 		{
-			SP_Vehicle vPrev = iVeh->second;
-			if(vPrev == NULL)
-				throw SSAMException("Step analysis failed, linking invalid vehicle from previous timestep.");
+			if (iBegin >= iEnd)
+				return;
+			size_t iCur = std::lower_bound(curIndex.begin(), curIndex.end(), prevIndex[iBegin].first,
+				[](const TimeStepData::IDIndexEntry& e, int id) { return e.first < id; }) - curIndex.begin();
+			for(size_t iPrev = iBegin; iPrev < iEnd; ++iPrev)
+			{
+				const SP_Vehicle& vPrev = (*prevVec)[prevIndex[iPrev].second];
+				if(vPrev == NULL)
+					throw SSAMException("Step analysis failed, linking invalid vehicle from previous timestep.");
 					
-			int preID = vPrev->GetVehicleID();
-			SP_Vehicle vNext = NULL;
-			std::map<int, SP_Vehicle> *curStepVeh = m_pCurStep->GetVehicleMap();
-			if (curStepVeh->find(preID) != curStepVeh->end())
-				vNext = curStepVeh->at(preID); 
-
-			if(vNext != NULL)
-				vPrev->SetNext(vNext);
+				int preID = prevIndex[iPrev].first;
+				while (iCur < curIndex.size() && curIndex[iCur].first < preID)
+					++iCur;
+					
+				if (iCur < curIndex.size() && curIndex[iCur].first == preID)
+					vPrev->SetNext((*curVec)[curIndex[iCur].second]);
+			}
+		};
+		int nPrev = (int)prevIndex.size();
+#ifdef _OPENMP_LOCAL
+		if (m_NThreads > 1 && nPrev >= m_NThreads * LINKS_PER_THREAD)
+		{
+			// Each thread links one block of the ID index. Each vehicle is linked once.
+			int nBlocks = m_NThreads;
+			ParallelError linkError;
+			#pragma omp parallel for num_threads(m_NThreads) schedule(static)
+			for(int iBlock = 0; iBlock < nBlocks; ++iBlock)
+			{
+				try
+				{
+					linkRange((size_t)((long long)nPrev * iBlock / nBlocks),
+						(size_t)((long long)nPrev * (iBlock + 1) / nBlocks));
+				}
+				catch (...)
+				{
+					linkError.Set(iBlock);
+				}
+			}
+			linkError.Rethrow();
 		}
+		else
+#endif
+		linkRange(0, (size_t)nPrev);
 	}
 	else
 	{
 		m_AnalysisTimeStep = m_ReadTimeStep - 1;
 	}
 	m_StepDataList.push_back(m_pCurStep);
+	g_ProfLinkSec += ProfSince(profLink0);
 
 	// check whether to process the set of steps and proceed if enough data
 	// and then remove the first step in the current set
@@ -394,58 +873,143 @@ void SSAM::DetectConflicts(SP_ZoneGrid pZoneGrid, std::map<VehiclePair, SP_Event
 	pZoneGrid->ClearGrid();
 		
 	SP_TimeStepData step = m_StepDataList.front();
-	std::map<int, SP_Vehicle>* stepVehMap = step->GetVehicleMap();
 	std::vector<SP_Vehicle>* stepVehVec = step->GetVehicleVec();
-		
-#ifdef _OPENMP_LOCAL
-	omp_set_num_threads(m_NThreads);
+	ProfClock::time_point profGrid0 = ProfClock::now();
+	g_ProfSteps += 1;
+	g_ProfVehicles += (long long)stepVehVec->size();
 
-	#pragma omp parallel for shared(pZoneGrid, eventList)
-#endif
-	for(int iv = 0; iv < stepVehVec->size(); ++iv)
+	// Vehicles are numbered in file order. The projection of a vehicle is checked only
+	// against the projections of earlier-numbered vehicles in the zones they share.
+	int nVeh = (int)stepVehVec->size();
+	std::vector<SP_Vehicle> projs(nVeh);
+	std::vector<int> ranges(4 * (size_t)nVeh);
+
+	// Creates or updates the events of vehicle v with the vehicles of the crash IDs, in ID order.
+	auto addEvents = [&](const SP_Vehicle& v, const std::vector<int>& crashIDs)
 	{
-		SP_Vehicle v = stepVehVec->at(iv);
-		SP_Vehicle vProj = v->CalcProjection(m_MaxTTC,m_MaxPET);
-
-		std::map<int, SP_Vehicle> newCrashVehicles;
-		pZoneGrid->AddVehicle(vProj, newCrashVehicles);
-		if(!newCrashVehicles.empty())
+		for (size_t k = 0; k < crashIDs.size(); ++k)
 		{
-			std::map<int, SP_Vehicle>::iterator it = newCrashVehicles.begin();
-			for (;it != newCrashVehicles.end(); ++it)
+			SP_Vehicle vActual = NULL;
+			const SP_Vehicle* pActual = step->FindVehicle(crashIDs[k]);
+			if (pActual != NULL)
+				vActual = *pActual;
+			else
+				continue;
+				
+			int idLo = min(vActual->GetVehicleID(), v->GetVehicleID());
+			int idHi = max(vActual->GetVehicleID(), v->GetVehicleID());
+			VehiclePair  vehPair(idLo, idHi);
+			SP_Event pEvent = NULL;
+			if (eventList.find(vehPair)  != eventList.end())
 			{
-				SP_Vehicle vCrash = it->second;
-				SP_Vehicle vActual = NULL;
-				if (stepVehMap->find(vCrash->GetVehicleID()) != stepVehMap->end())
-					vActual = stepVehMap->at(vCrash->GetVehicleID()); 
-				else
-					continue;
-					
-				int idLo = min(vActual->GetVehicleID(), v->GetVehicleID());
-				int idHi = max(vActual->GetVehicleID(), v->GetVehicleID());
-				VehiclePair  vehPair(idLo, idHi);
-				SP_Event pEvent = NULL;
+				pEvent = eventList[vehPair]; 
+				pEvent->AddVehicleData(vActual, v);
+			} else
+			{
+				m_InitEventParams.m_V1 = vActual;
+				m_InitEventParams.m_V2 = v;
+				pEvent = std::make_shared<Event>(m_InitEventParams);
+				eventList[vehPair] = pEvent;
+			}
+		}
+	};
+
 #ifdef _OPENMP_LOCAL
-				#pragma omp critical (ADDEVENTDATA)
-#endif
-				if (eventList.find(vehPair)  != eventList.end())
+	if (m_NThreads > 1 && nVeh >= PARALLEL_MIN_VEHICLES)
+	{
+		std::vector<char> inGrid(nVeh, 0);
+		std::vector<std::vector<int> > crashIDs(nVeh);
+		ParallelError projError, zoneError, crashError;
+		#pragma omp parallel num_threads(m_NThreads)
+		{
+			// 1. Projections, split across threads.
+			#pragma omp for schedule(dynamic, 32)
+			for(int iv = 0; iv < nVeh; ++iv)
+			{
+				try
 				{
-					pEvent = eventList[vehPair]; 
-					pEvent->AddVehicleData(vActual, v);
-				} else
+					projs[iv] = (*stepVehVec)[iv]->CalcProjection(m_MaxTTC,m_MaxPET);
+					inGrid[iv] = pZoneGrid->GetZoneRange(projs[iv], &ranges[4 * iv]) ? 1 : 0;
+				}
+				catch (...)
 				{
-					m_InitEventParams.m_V1 = vActual;
-					m_InitEventParams.m_V2 = v;
-					pEvent = std::make_shared<Event>(m_InitEventParams);
-					eventList[vehPair] = pEvent;
+					projError.Set(iv);
+				}
+			}
+
+			// 2. Zone occupancy, by the calling thread in vehicle number order.
+			#pragma omp master
+			{
+				try
+				{
+					if (!projError.HasError())
+					{
+						for(int iv = 0; iv < nVeh; ++iv)
+						{
+							if (inGrid[iv])
+								pZoneGrid->AddIndex(&ranges[4 * iv], iv);
+						}
+					}
+				}
+				catch (...)
+				{
+					zoneError.Set(0);
+				}
+			}
+			#pragma omp barrier
+
+			// 3. Overlap checks, split across threads. Each vehicle writes only its own list.
+			#pragma omp for schedule(dynamic, 32)
+			for(int iv = 0; iv < nVeh; ++iv)
+			{
+				try
+				{
+					if (inGrid[iv] && !projError.HasError() && !zoneError.HasError())
+						pZoneGrid->FindCrashes(projs, iv, &ranges[4 * iv], crashIDs[iv]);
+				}
+				catch (...)
+				{
+					crashError.Set(iv);
 				}
 			}
 		}
+		projError.Rethrow();
+		zoneError.Rethrow();
+		crashError.Rethrow();
+
+		// 4. Events, on the calling thread in vehicle number order.
+		for(int iv = 0; iv < nVeh; ++iv)
+		{
+			if (!crashIDs[iv].empty())
+				addEvents((*stepVehVec)[iv], crashIDs[iv]);
+		}
+	}
+	else
+#endif
+	{
+		// One vehicle at a time, on the calling thread.
+		std::vector<int> crashIDs;
+		for(int iv = 0; iv < nVeh; ++iv)
+		{
+			const SP_Vehicle& v = (*stepVehVec)[iv];
+			projs[iv] = v->CalcProjection(m_MaxTTC,m_MaxPET);
+			if (!pZoneGrid->GetZoneRange(projs[iv], &ranges[4 * iv]))
+				continue;
+			pZoneGrid->FindCrashes(projs, iv, &ranges[4 * iv], crashIDs);
+			pZoneGrid->AddIndex(&ranges[4 * iv], iv);
+			if (!crashIDs.empty())
+				addEvents(v, crashIDs);
+		}
 	}
 
+	g_ProfGridSec += ProfSince(profGrid0);
+
 	if (!eventList.empty())
-	{	
+	{
+		ProfClock::time_point profEvent0 = ProfClock::now();
+		g_ProfEventCalls += (long long)eventList.size();
 		AnalyzEvents(m_TrjSrcName, eventList);
+		g_ProfEventSec += ProfSince(profEvent0);
 	}
 }
 
@@ -685,7 +1249,7 @@ void SSAM::ValidateInputFormat()
 		m_Format.Print(m_DatFile);
 }
 
-bool SSAM::ValidateVehicle(SP_Vehicle v)
+bool SSAM::ValidateVehicle(const SP_Vehicle& v)
 {
 	return ((v->GetCenterX() >= m_pDimensions->GetMinX() 
 			  && v->GetCenterX() <= m_pDimensions->GetMaxX())
@@ -728,7 +1292,7 @@ void SSAM::PrintTimeStep(float t)
 		}
 		m_DatFile << std::endl;
 	}
-	m_DatFile << t << std::endl;
+	m_DatFile << t << '\n';
 }
 
 void InputFormat::Print(std::ostream& output)

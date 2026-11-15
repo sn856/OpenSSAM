@@ -24,6 +24,8 @@
 #include <list>
 #include <map>
 #include <vector>
+#include <algorithm>
+#include <utility>
 #include <ctime>
 #include <fstream>
 #include "Vehicle.h"
@@ -231,12 +233,35 @@ namespace SSAMFuncs
 	class TimeStepData
 	{
 	public:
-		TimeStepData(): m_TimeStep(-1) {}
+		/** One entry of the ID index: vehicle ID and position in the vehicle vector */
+		typedef std::pair<int, int> IDIndexEntry;
+
+		TimeStepData(): m_TimeStep(-1), m_IsIndexSorted(true) {}
 
 		void  SetTimestep(float t)	{ m_TimeStep = t; }
 		float GetTimestep() const { return m_TimeStep; }
-		std::map<int, SP_Vehicle>* GetVehicleMap() {return &m_VehicleMap;}
-		std::vector<SP_Vehicle>* GetVehicleVec() {return &m_VehicleVec;}
+		/** Get a map of the vehicles of this time step. The map is built on request only;
+		  * the analysis uses the ID index instead.
+		*/
+		std::map<int, SP_Vehicle>* GetVehicleMap()
+		{
+			SortIndex();
+			m_VehicleMap.clear();
+			for (size_t i = 0; i < m_IDIndex.size(); ++i)
+				m_VehicleMap.insert(std::pair<int, SP_Vehicle>(m_IDIndex[i].first, m_VehicleVec[m_IDIndex[i].second]));
+			return &m_VehicleMap;
+		}
+		std::vector<SP_Vehicle>* GetVehicleVec() { SortIndex(); return &m_VehicleVec; }
+		const std::vector<IDIndexEntry>& GetIDIndex() { SortIndex(); return m_IDIndex; }
+
+		/** Reserve storage for the expected number of vehicles of this time step
+		  * @param n expected number of vehicles
+		*/
+		void Reserve(size_t n)
+		{
+			m_VehicleVec.reserve(n);
+			m_IDIndex.reserve(n);
+		}
 
 		/** Add one vehicle data of current time step
 		  * @param vID ID of the vehicle to add
@@ -244,15 +269,74 @@ namespace SSAMFuncs
 		*/
 		void AddVehicle(int vID, SP_Vehicle v)
 		{
-			m_MapReturn = m_VehicleMap.insert(std::pair<int, SP_Vehicle>(vID, v));
-			if (m_MapReturn.second)
-				m_VehicleVec.push_back(v);
+			// A record that breaks the ascending ID order may be a duplicate; SortIndex() resolves it.
+			if (!m_IDIndex.empty() && vID <= m_IDIndex.back().first)
+				m_IsIndexSorted = false;
+			m_IDIndex.push_back(IDIndexEntry(vID, (int)m_VehicleVec.size()));
+			m_VehicleVec.push_back(std::move(v));
+		}
+
+		/** Sort the ID index by vehicle ID and drop the later records of a duplicate
+		  * vehicle ID (the first record wins). The vehicle vector keeps the input order.
+		*/
+		void SortIndex()
+		{
+			if (m_IsIndexSorted)
+				return;
+			m_IsIndexSorted = true;
+			std::sort(m_IDIndex.begin(), m_IDIndex.end());
+			std::vector<char> isDuplicate(m_VehicleVec.size(), 0);
+			bool hasDuplicate = false;
+			for (size_t i = 1; i < m_IDIndex.size(); ++i)
+			{
+				if (m_IDIndex[i].first == m_IDIndex[i - 1].first)
+				{
+					isDuplicate[m_IDIndex[i].second] = 1;
+					hasDuplicate = true;
+				}
+			}
+			if (!hasDuplicate)
+				return;
+
+			std::vector<int> newPos(m_VehicleVec.size(), -1);
+			std::vector<SP_Vehicle> kept;
+			for (size_t i = 0; i < m_VehicleVec.size(); ++i)
+			{
+				if (!isDuplicate[i])
+				{
+					newPos[i] = (int)kept.size();
+					kept.push_back(m_VehicleVec[i]);
+				}
+			}
+			m_VehicleVec.swap(kept);
+			size_t nKept = 0;
+			for (size_t i = 0; i < m_IDIndex.size(); ++i)
+			{
+				if (newPos[m_IDIndex[i].second] >= 0)
+					m_IDIndex[nKept++] = IDIndexEntry(m_IDIndex[i].first, newPos[m_IDIndex[i].second]);
+			}
+			m_IDIndex.resize(nKept);
+		}
+
+		/** Find the vehicle data of a vehicle ID in this time step.
+		  * Call SortIndex() before the first search of a time step.
+		  * @param vID ID of the vehicle to find
+		  * @return pointer to the stored smart pointer; NULL when the ID is not in this time step
+		*/
+		const SP_Vehicle* FindVehicle(int vID) const
+		{
+			std::vector<IDIndexEntry>::const_iterator it =
+				std::lower_bound(m_IDIndex.begin(), m_IDIndex.end(), IDIndexEntry(vID, 0));
+			if (it == m_IDIndex.end() || it->first != vID)
+				return NULL;
+			return &m_VehicleVec[it->second];
 		}
 	private:
 		float m_TimeStep; /*!< Seconds since the start of the simulation */
-		std::map<int, SP_Vehicle>  m_VehicleMap; /*!< A map container stores vehicle smart pointers using vehicle IDs as keys*/
-		std::vector<SP_Vehicle> m_VehicleVec; /*!< A vector container stores vehicle smart pointers*/
-		std::pair<std::map<int, SP_Vehicle>::iterator, bool> m_MapReturn; /*!< A pair stores the return value of inserting new vehicle into map */
+		std::map<int, SP_Vehicle>  m_VehicleMap; /*!< A map container built by GetVehicleMap() only*/
+		std::vector<SP_Vehicle> m_VehicleVec; /*!< A vector container stores vehicle smart pointers in input order*/
+		std::vector<IDIndexEntry> m_IDIndex; /*!< ID index: vehicle IDs with positions in the vehicle vector */
+		bool m_IsIndexSorted; /*!< Flag to indicate whether the ID index is sorted by vehicle ID without duplicates */
 	};
 	/** Smart pointer type to TimeStepData class.
 	*/
@@ -263,6 +347,24 @@ namespace SSAMFuncs
 	typedef std::pair<std::string, std::list<TrjRecord>* > TrjDataList;  
 
 	typedef std::pair<int, int> VehiclePair;
+
+	/** Default analysis thread count (conflict computation; the TRJ reader thread is not counted).
+	  * Fastest measured value on the 5.7GB file (6), capped at half of the logical
+	  * processors, minimum 1. Without OpenMP the analysis runs on one thread, so the default is 1.
+	  * Shared by the engine initial value, the console program and the GUI.
+	  */
+	inline int DefaultNThreads()
+	{
+#ifdef _OPENMP_LOCAL
+		const int fastest = 6;
+		int n = omp_get_num_procs() / 2;
+		if (n > fastest)
+			n = fastest;
+		return n < 1 ? 1 : n;
+#else
+		return 1;
+#endif
+	}
 
 	/** SSAM reads TRJ input, runs SSAM simulation, and maintains conflict results
      */
@@ -433,7 +535,7 @@ namespace SSAMFuncs
 		 * @param pVeh smart pointer to a vehicle to validate
 		 * @return true if intput is valid vehicle data.
 		 */
-		bool ValidateVehicle(SP_Vehicle pVeh);
+		bool ValidateVehicle(const SP_Vehicle& pVeh);
 
 		/** Print a read time step to csv file.
 		 */

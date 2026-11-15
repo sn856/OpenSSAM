@@ -121,6 +121,11 @@ public:
 	*/
 	bool IsCollided(SP_Vehicle v);
 
+	/** Check whether the input vehicle intersects with this vehicle.
+	* @param v A vehicle for collision check
+	*/
+	bool IsCollided(Vehicle& v);
+
 	/** Print current vehicle info.
 	* @param output the output stream
 	* @param version the version of TRJ format
@@ -141,7 +146,7 @@ public:
 	void setScale(float f) { m_Scale = f; }
 	void SetSpeed(float f) { m_Speed = f; }
 	void SetAcceleration(float f) { m_Acceleration = f; }
-	void SetNext(SP_Vehicle v) { m_pNext = v; }
+	void SetNext(SP_Vehicle v) { m_pNext = std::move(v); }
 	void SetLength(float f)
 	{
 		m_Length = f; 

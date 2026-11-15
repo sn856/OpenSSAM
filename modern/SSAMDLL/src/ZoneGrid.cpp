@@ -21,6 +21,7 @@
 #include <cmath>
 #include <list>
 #include <iostream>
+#include <algorithm>
 #include "ZoneGrid.h"
 
 ZoneGrid::ZoneGrid()
@@ -32,7 +33,7 @@ ZoneGrid::ZoneGrid(int xMin, int yMin, int xMax, int yMax, int size)
 	ResetGrid(xMin, yMin, xMax, yMax, size);
 }
 
-void ZoneGrid::AddVehicle(SP_Vehicle vNew, std::map<int, SP_Vehicle>& allCrashes)
+void ZoneGrid::AddVehicle(const SP_Vehicle& vNew, std::map<int, SP_Vehicle>& allCrashes)
 {
 	allCrashes.clear();
 	
@@ -71,6 +72,67 @@ void ZoneGrid::AddVehicle(SP_Vehicle vNew, std::map<int, SP_Vehicle>& allCrashes
 			m_UsedZones.push_back(UsedZone(ix, iy));
 			m_Zones[ix][iy]->AddVehicle(vNew, allCrashes);
 		}
+	}
+}
+	
+bool ZoneGrid::GetZoneRange(const SP_Vehicle& v, int range[4]) const
+{
+	if ((v->GetCenterX() < m_OrigMinX || v->GetCenterX() > m_OrigMaxX)|| 
+		(v->GetCenterY() < m_OrigMinY || v->GetCenterY() > m_OrigMaxY)) 
+	{
+		return false;
+	}
+	//	Same zone range as AddVehicle().
+	double vxMin = v->GetMinX() - m_MinX;
+	double vxMax = v->GetMaxX() - m_MinX;
+	double vyMin = v->GetMinY() - m_MinY;
+	double vyMax = v->GetMaxY() - m_MinY;
+	int ixMin = (int) floor(vxMin/m_ZoneSize);
+	int ixMax = (int) floor(vxMax/m_ZoneSize);
+	int iyMin = (int) floor(vyMin/m_ZoneSize);
+	int iyMax = (int) floor(vyMax/m_ZoneSize);
+	range[0] = std::max(ixMin,0);
+	range[1] = std::min(ixMax,m_NXZones-1);
+	range[2] = std::max(iyMin,0);
+	range[3] = std::min(iyMax,m_NYZones-1);
+	return true;
+}
+
+void ZoneGrid::AddIndex(const int range[4], int index)
+{
+	for(int ix = range[0]; ix <= range[1]; ix++)
+	{
+		for(int iy = range[2]; iy <= range[3]; iy++)
+		{
+			m_UsedZones.push_back(UsedZone(ix, iy));
+			m_Zones[ix][iy]->AddIndex(index);
+		}
+	}
+}
+
+void ZoneGrid::FindCrashes(const std::vector<SP_Vehicle>& projs, int index, const int range[4],
+	std::vector<int>& crashIDs) const
+{
+	crashIDs.clear();
+	Vehicle& vNew = *projs[index];
+	for(int ix = range[0]; ix <= range[1]; ix++)
+	{
+		for(int iy = range[2]; iy <= range[3]; iy++)
+		{
+			//	Numbers are ascending: check only the earlier-numbered projections.
+			const std::vector<int>& occ = m_Zones[ix][iy]->GetIndexes();
+			for(size_t k = 0; k < occ.size() && occ[k] < index; ++k)
+			{
+				Vehicle& vOther = *projs[occ[k]];
+				if(vNew.IsCollided(vOther))
+					crashIDs.push_back(vOther.GetVehicleID());
+			}
+		}
+	}
+	if (crashIDs.size() > 1)
+	{
+		std::sort(crashIDs.begin(), crashIDs.end());
+		crashIDs.erase(std::unique(crashIDs.begin(), crashIDs.end()), crashIDs.end());
 	}
 }
 	
@@ -114,15 +176,14 @@ void ZoneGrid::ResetGrid(int xMin, int yMin, int xMax, int yMax, int size)
 	m_UsedZones.clear();
 }
 
-void ZoneGrid::Zone::AddVehicle(SP_Vehicle vNew, std::map<int, SP_Vehicle>& allCrashes)
+void ZoneGrid::Zone::AddVehicle(const SP_Vehicle& vNew, std::map<int, SP_Vehicle>& allCrashes)
 {
 	
-	SP_Vehicle vOther;		
-	std::list<SP_Vehicle>::iterator i = m_Occupants.begin();
+	std::vector<SP_Vehicle>::iterator i = m_Occupants.begin();
 	for(; i != m_Occupants.end(); ++i)
 	{
-		vOther = *i;
-		if(vNew->IsCollided(vOther))
+		const SP_Vehicle& vOther = *i;
+		if(vNew->IsCollided(*vOther))
 		{
 			allCrashes[vOther->GetVehicleID()] = vOther;
 		}

@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param()
+param(
+    # Build only the engine DLL and the console program. Skips SSAMAPP and the WorkingDir copy.
+    [switch]$EngineOnly
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -26,6 +29,18 @@ Write-Host 'Building SSAMDLL (Release_MT | x64)...'
 & $msbuild $dllSolution /t:SSAMDLL /p:Configuration=Release_MT /p:Platform=x64 /m /nologo
 if ($LASTEXITCODE -ne 0) {
     throw "SSAMDLL build failed with exit code $LASTEXITCODE"
+}
+
+Write-Host 'Building SSAM console (Release_MT | x64)...'
+& $msbuild $dllSolution /t:SSAM /p:Configuration=Release_MT /p:Platform=x64 /m /nologo
+if ($LASTEXITCODE -ne 0) {
+    throw "SSAM console build failed with exit code $LASTEXITCODE"
+}
+
+if ($EngineOnly) {
+    Write-Host ''
+    Write-Host 'Engine-only build complete (SSAMAPP and WorkingDir not updated).'
+    return
 }
 
 Write-Host 'Building SSAMAPP (Release_MT | x64)...'

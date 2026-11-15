@@ -115,9 +115,65 @@
 - 탭별 공통 리사이즈 처리 함수를 둘지 여부
 - MFC 고정 배치 유지 + 수동 재배치 방식으로 갈지, 간단한 레이아웃 헬퍼를 도입할지 여부
 
+## 분석 엔진 속도 개선 (2026-11)
+
+### 결과
+
+- 분석 결과(결과 CSV, TRJ 텍스트 파일, P(UEA)·mTTC·mPET 값)는 수정 전과 바이트 단위로 같다.
+
+| TRJ 파일 크기 | 수정 전 | 수정 후 |
+|---|---|---|
+| 약 150MB | 2.5초 | 0.4초 |
+| 약 6GB | 130초 | 19초 |
+
+### 바뀐 것
+
+- 파일을 4MB 덩어리로 읽는다 (리틀엔디언 파일만. 빅엔디언 파일은 예전 방식).
+- 차량 기록 보관 방식을 바꿨다 (시간 단계별 번호 지도 → 정렬된 번호 목록).
+- 읽기 전용 스레드가 분석과 동시에 파일을 읽는다. 앞서 읽는 시간 단계는 최대 64개다.
+- 상충 후보 찾기(투영 계산, 겹침 검사)와 차량 연결을 여러 스레드로 나눈다. TTC·PET 계산과 상충 확정은 예전처럼 한 스레드에서 순서대로 한다 (P(UEA) 난수 순서를 지키기 위해).
+- 분석 스레드 수 기본값: `min(6, 논리 프로세서 수 / 2)`, 최소 1. 화면의 칸이나 `nthreads=`에 적은 값이 우선한다. 읽기 스레드 1개는 이 수에 세지 않는다.
+  - 근거: 약 6GB 파일에서 6이 가장 빨랐다. 그보다 많으면 오히려 조금 느려졌다.
+  - 바꾸려면 `modern/SSAMDLL/include/SSAM.h`의 `DefaultNThreads()`와 `Source.cpp` 도움말의 숫자를 같이 고친다.
+- 명령줄 `nthreads=`, `ttc=`, `pet=`가 한 글자 값(예: `ttc=1`, `pet=5`, `nthreads=8`)을 받는다.
+  - 주의: 예전에는 한 글자 값이 무시되고 기본값(TTC 1.5, PET 5.0)으로 분석되었다. 예전에 `ttc=1`처럼 쓴 스크립트는 이제 결과가 달라진다.
+- PET 0 이하와 스레드 수 0 이하는 오류로 거절한다.
+- 읽기 오류가 나면 열린 TRJ 파일과 TRJ 텍스트 파일을 닫는다.
+
+### 환경변수
+
+| 이름 | 값 | 뜻 |
+|---|---|---|
+| `SSAM_PROFILE` | 아무 값 | 분석이 끝나면 구간별 시간(`[profile]` 줄)을 출력한다 |
+| `SSAM_VERIFY_DUMP` | 파일 경로 | 분석이 끝나면 상충별 P(UEA)·mTTC·mPET 값을 그 파일에 쓴다 (검증용) |
+| `SSAM_READER_THREAD` | `0` | 읽기 스레드를 끄고 예전처럼 한 스레드에서 읽는다 |
+
+### 검증 방법
+
+- 시험 자료와 기준 결과는 `.local/` 아래에 둔다 (git 제외). 저장소에는 넣지 않는다.
+  - 시험 TRJ 파일 경로는 `.local/testdata/test-files.json`에 적는다 (`small`, `medium`, `large`).
+  - 옛 형식·잘린 시험 파일 만들기: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-engine-testdata.ps1`
+  - 기준 결과는 수정 전 엔진으로 한 번만 만든다 (`verify-engine.ps1 -MakeBaseline`). 다시 만들지 않는다.
+- 엔진과 명령줄 프로그램만 빌드: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-release-mt-x64.ps1 -EngineOnly`
+- 빠른 검증 (큰 파일 제외): `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-engine.ps1 -Quick`
+- 전체 검증 (큰 파일 포함): `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-engine.ps1`
+- 종료 코드 0이면 합격이다. 한 줄이라도 `MISMATCH`이면 불합격이다.
+- 스크립트는 Windows PowerShell 5.1(`powershell`)로 돌린다.
+
+### 다음 할 일
+
+1. **화면 프로그램(SSAM3M.exe) 다시 빌드.**
+   - 이번 작업에서 화면 프로그램은 다시 빌드하지 못했다. 빌드 도구에 MFC 라이브러리가 없다.
+   - Visual Studio Installer에서 "C++ MFC for latest v143 build tools (x86 & x64)"를 설치한다.
+   - `scripts/build-release-mt-x64.ps1`를 실행한다. 엔진, 명령줄 프로그램, 화면 프로그램을 빌드하고 엔진 DLL을 `modern/SSAM3/WorkingDir/`로 복사한다.
+   - 빌드 전까지 `WorkingDir`의 화면 프로그램과 엔진은 예전 것 그대로 둔다. 새 엔진 DLL만 따로 넣지 않는다 (헤더가 바뀌어 섞으면 안 된다).
+   - 빌드 뒤 화면 프로그램으로 분석을 한 번 돌려, 명령줄 프로그램과 상충 건수가 같은지 확인한다.
+   - 화면 프로그램에서만 닿는 경로(엔진의 PET 0 거절, 오류 뒤 다시 분석)도 이때 확인한다.
+2. 빅엔디언 TRJ 파일 확인 (시험 파일이 없어 확인하지 못했다).
+3. 다음 작업 후보: 화면 프로그램의 진행률 표시·취소, 결과 목록 채우기 속도, TRJ 파일 여러 개 동시 분석, 빅엔디언 변환 버그, 한 차량이 다른 차량 안에 완전히 들어간 경우를 놓치는 판정.
+
 ## 범위 제외
 
-- 알고리즘 개선
-- 분석 성능 최적화
+- 알고리즘 개선 (분석 결과가 바뀌는 변경)
 - 파일 포맷 변경
 - 설치 패키지 정리

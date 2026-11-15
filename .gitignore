@@ -24,3 +24,6 @@ modern/**/Debug/
 modern/**/Release/
 modern/**/x64/
 modern/**/Win32/
+
+# dryforge working documents
+.dryforge/

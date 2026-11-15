@@ -75,7 +75,35 @@ public:
 	 * @param vNew New vehicle to add
 	 * @param allCrashes A set of all other vehicles the new vehicle crashes with
 	 */
-	void AddVehicle(SP_Vehicle vNew, std::map<int, SP_Vehicle>& allCrashes);
+	void AddVehicle(const SP_Vehicle& vNew, std::map<int, SP_Vehicle>& allCrashes);
+
+	/**
+	 * Get the range of zones the bounding box of a vehicle projection covers.
+	 * @param v Vehicle projection
+	 * @param range Receives the first and last x zone and the first and last y zone
+	 * @return false when the center of the projection is outside the original grid;
+	 * such a projection is not added and not checked
+	 */
+	bool GetZoneRange(const SP_Vehicle& v, int range[4]) const;
+
+	/**
+	 * Record a vehicle number in every zone of a range.
+	 * Call in ascending vehicle number order.
+	 * @param range Zone range from GetZoneRange()
+	 * @param index Vehicle number in the time step (file order)
+	 */
+	void AddIndex(const int range[4], int index);
+
+	/**
+	 * Find the earlier-numbered vehicle projections that a vehicle projection overlaps
+	 * in the zones of its range. Reads only, so several threads may call it at once.
+	 * @param projs Vehicle projections by vehicle number
+	 * @param index Vehicle number of the projection to check
+	 * @param range Zone range of that projection
+	 * @param crashIDs Receives the vehicle IDs, ascending and without duplicates
+	 */
+	void FindCrashes(const std::vector<SP_Vehicle>& projs, int index, const int range[4],
+		std::vector<int>& crashIDs) const;
 	
 private:
 	/** Zone maintains a list of occupying vehicles.
@@ -89,18 +117,26 @@ private:
 		 * @param vNew A pointer to a new vehicle.
 		 * @param allCrashes A list of vehicles crashing with new vehicle.
 		 */
-		void AddVehicle(SP_Vehicle vNew, std::map<int, SP_Vehicle>& allCrashes);
+		void AddVehicle(const SP_Vehicle& vNew, std::map<int, SP_Vehicle>& allCrashes);
 
 		/** Remove all vehicles from this zone.
 		*/
 		void Clear()
 		{
 			m_Occupants.clear();	
+			m_Indexes.clear();
 		}
+
+		/** Add a vehicle number to the zone. */
+		void AddIndex(int index) { m_Indexes.push_back(index); }
+
+		/** Vehicle numbers in the zone, in the order added. */
+		const std::vector<int>& GetIndexes() const { return m_Indexes; }
 	private:	
 		/** The list of vehicles occupying this zone
 		*/
-	    std::list<SP_Vehicle> m_Occupants;
+	    std::vector<SP_Vehicle> m_Occupants;
+		std::vector<int> m_Indexes; /*!< Vehicle numbers occupying this zone */
 	};
 
 	/** Smart pointer type to Zone class.

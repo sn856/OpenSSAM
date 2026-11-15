@@ -58,7 +58,7 @@ void usage()
 	std::cout << PET << "=f\t\t- specify maximum PET (range [0.0, 10.0], default = 5.0)" << std::endl;
 
 #ifdef _OPENMP_LOCAL
-	std::cout << nthreads << "=n\t- specify the number of threads (default is the number of logic processors)" << std::endl;
+	std::cout << nthreads << "=n\t- specify the number of analysis threads (default = min(6, logical processors / 2), at least 1; the reader thread is not counted)" << std::endl;
 #endif
 	std::cout << p << "\t\t- output progress to screen" << std::endl;
 	std::cout << std::endl << "options may be specified in any order." << std::endl;
@@ -74,8 +74,9 @@ int main(int argc, char* args[])
 		SSAMFuncs::SSAM SSAMRunner;
 
 #ifdef _OPENMP_LOCAL
-        int nThreads = omp_get_num_procs() / 2;
-		std::cout << "System Processors: " << nThreads << std::endl;
+		int nThreads = SSAMFuncs::DefaultNThreads();
+		std::cout << "Logical processors: " << omp_get_num_procs() << std::endl;
+		std::cout << "Default analysis threads: " << nThreads << std::endl;
 #endif
 
 		std::string errMsg;
@@ -94,7 +95,7 @@ int main(int argc, char* args[])
 			}
 			else if(argument.substr(0, TTC.length()) == TTC)
 			{
-				if( argument.length() <= TTC.length()+2)
+				if( argument.length() <= TTC.length()+1)
 				{
 					std::cerr << "warning: ttc argument with no value ignored.\n";
 					continue;
@@ -115,7 +116,7 @@ int main(int argc, char* args[])
 			}
 			else if(argument.substr(0, PET.length()) == PET)
 			{
-				if(argument.length() <= PET.length()+2)
+				if(argument.length() <= PET.length()+1)
 				{
 					std::cerr << "warning: pet argument with no value ignored.\n";
 					continue;
@@ -124,8 +125,8 @@ int main(int argc, char* args[])
 				try 
 				{ 
 					pet = std::stof(argument.substr(PET.length()+1));
-					if(pet < 0 || pet > 10)
-						throw SSAMException("value " + std::to_string(pet) + " not in acceptable range, [0.0, 10.0]");
+					if(pet <= 0 || pet > 10)
+						throw SSAMException("value " + std::to_string(pet) + " not in acceptable range, (0.0, 10.0]");
 				} catch (const std::invalid_argument& e)
 				{
 					errMsg = "error: invalid decimal value, use -pet5.0 (for example)\nextra error info: "; 
@@ -147,7 +148,7 @@ int main(int argc, char* args[])
 #ifdef _OPENMP_LOCAL
 			else if(argument.substr(0, nthreads.length()) == nthreads)
 			{
-				if( argument.length() <= nthreads.length()+2)
+				if( argument.length() <= nthreads.length()+1)
 				{
 					std::cerr << "warning: nthreads argument with no value ignored.\n";
 					continue;
@@ -156,8 +157,8 @@ int main(int argc, char* args[])
 				try 
 				{ 
 					nThreads = std::stoi(argument.substr(nthreads.length()+1));
-					if(nThreads < 0)
-						throw SSAMException("value " + std::to_string(nThreads) + " must be a positive number");
+					if(nThreads < 1)
+						throw SSAMException("value " + std::to_string(nThreads) + " must be 1 or greater");
 				} catch (const std::invalid_argument& e)
 				{
 					errMsg = "error: invalid decimal value, use -nthreads=4 (for example)\nextra error info: "; 

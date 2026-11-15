@@ -69,20 +69,23 @@ SP_Vehicle Vehicle::CalcProjection(float maxTTC, float maxPET)
 	float fullDist = dist/m_Scale;
 	float remnDist = fullDist;
 
-	SP_Vehicle vehLast = std::make_shared<Vehicle>( *this);
+	// The walk starts at this vehicle. A copy of this vehicle is made only when it is the result.
+	Vehicle* vehLast = this;
+	const SP_Vehicle* pLast = NULL; // smart pointer to vehLast; NULL while vehLast is this vehicle
 	while(remnDist > 0)
 	{
-		SP_Vehicle vehNext = vehLast->GetNext();
+		const SP_Vehicle& vehNext = vehLast->m_pNext;
 		if(vehNext != NULL)
 		{
 			float stepDist = vehNext->GetV2VDistance(*vehLast);
 			if(stepDist <= 0) 
 			{
-				return vehLast;
+				return (pLast != NULL) ? *pLast : std::make_shared<Vehicle>(*this);
 			}
 			else if(remnDist > stepDist) 
 			{
-				vehLast = vehNext;
+				pLast = &vehNext;
+				vehLast = vehNext.get();
 				remnDist -= stepDist;
 			}
 			else 
@@ -122,22 +125,27 @@ SP_Vehicle Vehicle::CalcProjection(float maxTTC, float maxPET)
 				v->SetPosition(projFX, projFY, projRX, projRY);
 				return v;						
 			}
-			return vehLast;
+			return (pLast != NULL) ? *pLast : std::make_shared<Vehicle>(*this);
 		}
 	}
-	return vehLast;
+	return (pLast != NULL) ? *pLast : std::make_shared<Vehicle>(*this);
 }
 
 bool Vehicle::IsCollided(SP_Vehicle v)
 {
+	return IsCollided(*v);
+}
+
+bool Vehicle::IsCollided(Vehicle& v)
+{
 	// considered as at two levels if more than 5 ft apart in elevation
-	if (abs(GetCenterZ() - v->GetCenterZ()) > 5.0) 
+	if (abs(GetCenterZ() - v.GetCenterZ()) > 5.0) 
 		return false;
 	
-	if	(	(m_MaxX < v->GetMinX())
-		||	(m_MinX > v->GetMaxX())
-		||	(m_MaxY < v->GetMinY())
-		||	(m_MinY > v->GetMaxY())
+	if	(	(m_MaxX < v.GetMinX())
+		||	(m_MinX > v.GetMaxX())
+		||	(m_MaxY < v.GetMinY())
+		||	(m_MinY > v.GetMaxY())
 		)
 		return false;
 
@@ -152,10 +160,10 @@ bool Vehicle::IsCollided(SP_Vehicle v)
 										m_CornerY[i], 
 										m_CornerX[iNext], 
 										m_CornerY[iNext],
-										v->m_CornerX[j], 
-										v->m_CornerY[j], 
-										v->m_CornerX[jNext], 
-										v->m_CornerY[jNext]))
+										v.m_CornerX[j], 
+										v.m_CornerY[j], 
+										v.m_CornerX[jNext], 
+										v.m_CornerY[jNext]))
 				return true;
 		}
 	}
@@ -181,7 +189,7 @@ void Vehicle::Print(std::ostream& output, float version)
 		output << m_FrontZ << ","
 			<< m_RearZ << ",";
 	}
-	output	<< std::endl;
+	output	<< '\n';
 }
 
 void Vehicle::CalcPerpOffset(float x1, float y1, float x2, float y2, float dist,
