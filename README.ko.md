@@ -43,14 +43,13 @@ OpenSSAM은 마이크로시뮬레이션 궤적 데이터 기반 대리안전도 
 - `archive/SSAM3EXE/`
 - `archive/SSAM3EXE_x86/`
 
-커맨드라인 실행 예시는 다음과 같습니다.
+커맨드라인 실행 프로그램 `SSAM_MT.exe`는 1.1.0부터 배포본에 들어 있습니다. 실행 예시는 다음과 같습니다.
 
 ```powershell
-cd .\archive\SSAMEXE
-.\SSAM_MT.exe trjfiles="C:\data\input.trj" csvfile="C:\data\output.csv" TTC=1.5 PET=5.0
+.\SSAM_MT.exe trjfiles="C:\data\input.trj" csvfile="C:\data\output.csv" ttc=1.5 pet=5.0
 ```
 
-멀티스레드 빌드에서는 `nthreads=<N>` 옵션도 사용할 수 있습니다.
+옵션 이름은 소문자로 씁니다. `nthreads=<N>`으로 분석 스레드 수를 정합니다. 적지 않으면 `min(6, 논리 프로세서 수 / 2)`를 씁니다.
 
 ## 빌드 메모
 
@@ -74,13 +73,32 @@ cd .\archive\SSAMEXE
 
 아직은 레거시 UI 위에 적용한 1차 개선 단계이며, 더 넓은 범위의 UI 재설계는 장기 로드맵에 포함되어 있습니다.
 
+## 1.1 개선 사항
+
+분석 엔진 속도 개선:
+
+- 분석 결과는 이전 엔진과 바이트 단위로 같습니다.
+- 큰 궤적 파일에서 약 6배 빨라졌습니다 (약 6GB: 130초 → 19초, 약 150MB: 2.5초 → 0.4초, 같은 PC에서 잰 값).
+- 파일을 큰 덩어리로 읽고, 읽기 전용 스레드를 두고, 상충 후보 찾기를 여러 스레드로 나눕니다.
+- 분석 스레드 수 기본값: `min(6, 논리 프로세서 수 / 2)`.
+- 명령줄에서 `ttc=1`, `nthreads=8` 같은 한 글자 값을 받습니다 (예전에는 무시되었습니다). `pet` 0 이하와 `nthreads` 1 미만은 오류로 거절합니다.
+
+화면 프로그램 수정:
+
+- TRJ 파일 여러 개를 골라 지우면 고른 파일만 지워집니다.
+- Analyze는 값을 먼저 검사합니다. 값이 잘못되었거나 파일 목록이 비어 있으면 안내창을 띄우고 이전 결과를 남깁니다.
+- PET 위아래 화살표는 0.1에서 멈춥니다.
+- 상충 각도 그림 창은 하나만 뜹니다.
+- `Conflicts`, `Summary` 목록이 더 빨리 채워집니다.
+- `Configuration`, `Filter`, `ttest` 탭이 창 크기를 따라옵니다.
+
 ## 로드맵
 
 - 재현 가능한 빌드 절차 검증 및 문서화
 - 필요 시 보관용 아티팩트와 적극 유지보수 대상 소스의 분리
 - UI 재설계
-- conflict detection 및 motion prediction 경로 프로파일링과 최적화
-- 대용량 입력과 멀티스레드 분석 성능 개선
+- conflict detection 및 motion prediction 경로 추가 최적화
+- 분석 중에도 화면이 멈추지 않게 하기 (진행률·취소)
 - 샘플 데이터, 테스트, 현대적인 개발자 문서 추가
 
 ## 아카이브 메모

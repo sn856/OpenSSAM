@@ -37,4 +37,11 @@ Copy-Item -LiteralPath $builtExe -Destination (Join-Path $packageDir 'SSAM3M.exe
 Copy-Item -LiteralPath $builtExe -Destination (Join-Path $packageDir 'SSAM3.exe') -Force
 Copy-Item -LiteralPath $builtDll -Destination (Join-Path $packageDir 'SSAMDLL_MT.dll') -Force
 
+# Console program (same engine DLL as the GUI)
+$builtConsole = Join-Path $repoRoot 'modern\SSAMDLL\bin\SSAM_MT.exe'
+if (-not (Test-Path -LiteralPath $builtConsole)) {
+    throw "Built console program not found: $builtConsole"
+}
+Copy-Item -LiteralPath $builtConsole -Destination (Join-Path $packageDir 'SSAM_MT.exe') -Force
+
 Write-Host "Package ready: $packageDir"

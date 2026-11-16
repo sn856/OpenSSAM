@@ -43,14 +43,13 @@ If you only need the legacy desktop application from the preserved archive, chec
 - `archive/SSAM3EXE/`
 - `archive/SSAM3EXE_x86/`
 
-For command-line use:
+For command-line use, the release package (1.1.0 and later) includes `SSAM_MT.exe`:
 
 ```powershell
-cd .\archive\SSAMEXE
-.\SSAM_MT.exe trjfiles="C:\data\input.trj" csvfile="C:\data\output.csv" TTC=1.5 PET=5.0
+.\SSAM_MT.exe trjfiles="C:\data\input.trj" csvfile="C:\data\output.csv" ttc=1.5 pet=5.0
 ```
 
-In multithreaded builds, `nthreads=<N>` is also available.
+Option names are lowercase. `nthreads=<N>` sets the number of analysis threads. Without it, the program uses `min(6, logical processors / 2)`.
 
 ## Build Notes
 
@@ -74,13 +73,32 @@ The initial 1.0 portable release includes a small but practical set of GUI impro
 
 This is still an incremental update on top of the legacy UI. A broader UI redesign remains part of the long-term roadmap.
 
+## 1.1 Updates
+
+Faster analysis engine:
+
+- results are byte-identical to the previous engine
+- about 6x faster on large trajectory files (about 6 GB: 130 s to 19 s; about 150 MB: 2.5 s to 0.4 s, measured on one PC)
+- chunked file reading, a dedicated reader thread, and multithreaded conflict search
+- default analysis threads: `min(6, logical processors / 2)`
+- the command line now accepts single-character values such as `ttc=1` or `nthreads=8` (previously ignored), and rejects `pet` of 0 or less and `nthreads` below 1
+
+GUI fixes:
+
+- deleting several selected trajectory files now removes exactly the selected files
+- Analyze checks the inputs first; invalid values or an empty file list show a message and keep the previous results
+- the PET arrow buttons stop at 0.1
+- the conflict angle diagram opens a single window
+- `Conflicts` and `Summary` lists fill faster
+- the `Configuration`, `Filter`, and `ttest` tabs follow the window size
+
 ## Roadmap
 
 - Verify and document a reproducible build
 - Separate archive artifacts from actively maintained source where appropriate
 - Redesign the UI
-- Profile and optimize conflict detection and motion prediction paths
-- Improve large-input and multithreaded analysis performance
+- Further optimize conflict detection and motion prediction paths
+- Keep the GUI responsive during analysis (progress and cancel)
 - Add sample data, tests, and modern developer documentation
 
 ## Archive Note
