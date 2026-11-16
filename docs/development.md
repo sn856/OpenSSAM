@@ -118,7 +118,7 @@
   - 각도 그림 창은 버튼을 여러 번 눌러도 하나만 뜬다.
   - 확인란 문구 오타를 고쳤다 ("Output trj files in Text Format").
 - Conflicts·Summary 목록은 줄을 넣는 동안 다시 그리지 않는다. 창 크기를 바꿀 때 열 너비를 다시 맞추지 않는다.
-  - 약 150MB 파일 결과(약 2,600줄)를 Conflicts 탭에 채우는 시간: 15초 → 9초.
+  - 약 150MB 파일 결과(약 2,600줄)를 Conflicts 탭에 채우는 시간: 15초 → 9초 (같은 PC에서 잰 값).
 - Configure·Filter·ttest 탭이 창 크기를 따라온다. 기준은 프로그램을 띄웠을 때의 배치다.
 - 각 탭의 묶음 상자에 고유 번호(`IDC_GROUP_<탭>_<내용>`)를 붙였다.
 - 화면 프로그램과 콘솔 프로그램의 상충 건수가 같은 것을 확인했다.
@@ -162,7 +162,7 @@
   - 시험 TRJ 파일 경로는 `.local/testdata/test-files.json`에 적는다 (`small`, `medium`, `large`).
   - 옛 형식·잘린 시험 파일 만들기: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-engine-testdata.ps1`
   - 기준 결과는 수정 전 엔진으로 한 번만 만든다 (`verify-engine.ps1 -MakeBaseline`). 다시 만들지 않는다.
-- 엔진과 명령줄 프로그램만 빌드: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-release-mt-x64.ps1 -EngineOnly`
+- 엔진과 콘솔 프로그램만 빌드: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-release-mt-x64.ps1 -EngineOnly`
 - 빠른 검증 (큰 파일 제외): `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-engine.ps1 -Quick`
 - 전체 검증 (큰 파일 포함): `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-engine.ps1`
 - 종료 코드 0이면 합격이다. 한 줄이라도 `MISMATCH`이면 불합격이다.
