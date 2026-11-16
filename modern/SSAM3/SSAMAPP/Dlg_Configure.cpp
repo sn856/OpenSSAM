@@ -32,6 +32,7 @@ IMPLEMENT_DYNAMIC(CDlg_Configure, CDialog)
 
 CDlg_Configure::CDlg_Configure(CWnd* pParent /*=NULL*/)
 	: CDlg_Tab(pParent)
+	, m_hDiagram(NULL)
 {
 
 }
@@ -45,6 +46,7 @@ CDlg_Configure::CDlg_Configure(SP_SSAMDoc pSSAMDoc, CWnd* pParent)
 	, m_MaxCrossingAngle(pSSAMDoc->GetCrossingAngle())
 	, m_IsCalcPUEA(0)
 	, m_IsWriteDat(0)
+	, m_hDiagram(NULL)
 {
 	m_NumOfThreads = SSAMFuncs::DefaultNThreads();
 }
@@ -78,8 +80,11 @@ BOOL CDlg_Configure::OnInitDialog()
 	m_Spin_MaxTTC.SetRange32(0, MAX_TTC);
 	m_Spin_MaxTTC.SetPos32(int(m_MaxTTC*10.0));
 
-	m_Spin_MaxPET.SetRange32(0, MAX_PET);
-	m_Spin_MaxPET.SetPos32(int(m_MaxPET*10.0));
+	m_Spin_MaxPET.SetRange32(MIN_PET, MAX_PET);
+	int petPos = int(m_MaxPET*10.0);
+	if (petPos < MIN_PET) petPos = MIN_PET;
+	if (petPos > MAX_PET) petPos = MAX_PET;
+	m_Spin_MaxPET.SetPos32(petPos);
 
 	m_Spin_MaxRearAngle.SetRange32(0, MAX_ANGLE);
 	m_Spin_MaxRearAngle.SetPos32(m_MaxRearAngle);
@@ -173,7 +178,8 @@ void CDlg_Configure::OnBnClickedButtonDelete()
 		arySel.SetSize(nCount);
 		m_ListBox_TrjFiles.GetSelItems(nCount, arySel.GetData());
 
-		for (int i = 0; i < nCount; ++i)
+		// delete from the highest index so lower indexes stay valid
+		for (int i = nCount - 1; i >= 0; --i)
 		{
 			int idx = arySel[i];
 			m_ListBox_TrjFiles.DeleteString(idx);
@@ -188,30 +194,17 @@ void CDlg_Configure::OnBnClickedButtonAnalyze()
 {
 	try
 	{
-		UpdateData(TRUE);
-		m_pSSAMDoc->ResetDoc();
-
-		// Add trj files
-		int nCount = m_ListBox_TrjFiles.GetCount();
-		if (nCount == 0)
+		if (!UpdateData(TRUE))
 			return;
 
-		CString str;
-		std::string csvFileName;
-		for (int i = 0; i < nCount; ++i)
+		int nCount = m_ListBox_TrjFiles.GetCount();
+		if (nCount == 0)
 		{
-			m_ListBox_TrjFiles.GetText(i, str);
-			std::string fname(str);
-			m_pSSAMDoc->AddTrjFile(fname);
-
-			if (i==0)
-			{
-				csvFileName = fname.substr(0, fname.length() - 4) +".csv";
-			}
+			AfxMessageBox("Add at least one trajectory file.");
+			return;
 		}
-		m_pSSAMDoc->SetCSVFile(csvFileName);
 
-		// validate and set other parameters
+		// validate parameters before clearing previous results
 		if (m_MaxTTC < 0 || m_MaxTTC > 5)
 		{
 			CString msg;
@@ -220,10 +213,10 @@ void CDlg_Configure::OnBnClickedButtonAnalyze()
 			return;
 		}
 
-		if (m_MaxPET < 0 || m_MaxPET > 10)
+		if (m_MaxPET <= 0 || m_MaxPET > 10)
 		{
 			CString msg;
-			msg.Format("Maximum TTC is not in acceptable range, [0.0, %2.1f]", MAX_PET/10.0);
+			msg.Format("Maximum PET is not in acceptable range, (0.0, %2.1f]", MAX_PET/10.0);
 			AfxMessageBox(msg);
 			return;
 		}
@@ -243,6 +236,31 @@ void CDlg_Configure::OnBnClickedButtonAnalyze()
 			AfxMessageBox(msg);
 			return;
 		}
+#ifdef _OPENMP_LOCAL
+		if (m_NumOfThreads < 1)
+		{
+			AfxMessageBox("Number of threads must be 1 or greater.");
+			return;
+		}
+#endif
+
+		// all checks passed: clear previous results and add trj files
+		m_pSSAMDoc->ResetDoc();
+
+		CString str;
+		std::string csvFileName;
+		for (int i = 0; i < nCount; ++i)
+		{
+			m_ListBox_TrjFiles.GetText(i, str);
+			std::string fname(str);
+			m_pSSAMDoc->AddTrjFile(fname);
+
+			if (i==0)
+			{
+				csvFileName = fname.substr(0, fname.length() - 4) +".csv";
+			}
+		}
+		m_pSSAMDoc->SetCSVFile(csvFileName);
 	
 		m_pSSAMDoc->SetMaxTTC(m_MaxTTC);
 		m_pSSAMDoc->SetMaxPET(m_MaxPET);
@@ -294,7 +312,10 @@ void CDlg_Configure::OnDeltaposSpinTtc(NMHDR *pNMHDR, LRESULT *pResult)
 void CDlg_Configure::OnDeltaposSpinPet(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMUPDOWN pNMUpDown = reinterpret_cast<LPNMUPDOWN>(pNMHDR);
-	m_MaxPET = float(pNMUpDown->iPos + pNMUpDown->iDelta)/10.0;
+	int petPos = pNMUpDown->iPos + pNMUpDown->iDelta;
+	if (petPos < MIN_PET) petPos = MIN_PET;
+	if (petPos > MAX_PET) petPos = MAX_PET;
+	m_MaxPET = float(petPos)/10.0;
 	UpdateData(FALSE);
 	*pResult = 0;
 }
@@ -325,7 +346,20 @@ void CDlg_Configure::UpdateListBox(CListBox* pListBox, CString message)
 
 void CDlg_Configure::OnBnClickedButton1()
 {
+	// reuse the existing diagram window; it is only hidden when closed
+	if (m_hDiagram != NULL && ::IsWindow(m_hDiagram))
+	{
+		::ShowWindow(m_hDiagram, SW_SHOW);
+		::SetForegroundWindow(m_hDiagram);
+		return;
+	}
+
 	CDlg_Diagram* dlg = new CDlg_Diagram();
-	BOOL IsCreated = dlg->Create(IDD_DIALOG_DIAGRAM);
+	if (!dlg->Create(IDD_DIALOG_DIAGRAM))
+	{
+		m_hDiagram = NULL;
+		return;
+	}
+	m_hDiagram = dlg->GetSafeHwnd();
 	dlg->ShowWindow(SW_SHOW);
 }
