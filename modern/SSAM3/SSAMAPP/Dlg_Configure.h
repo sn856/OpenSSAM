@@ -39,6 +39,7 @@ public:
 	enum { IDD = IDD_DIALOG_CONFIGURE };
 
 	static const int MAX_TTC = 50; // need to divide by 10
+	static const int MIN_PET = 1; // need to divide by 10
 	static const int MAX_PET = 100; // need to divide by 10
 	static const int MAX_ANGLE = 180;
 	
@@ -61,6 +62,7 @@ private:
 	CListBox m_ListBox_TrjFiles;
 	CSpinButtonCtrl m_Spin_MaxTTC, m_Spin_MaxPET;
 	CSpinButtonCtrl m_Spin_MaxRearAngle, m_Spin_MaxCrossingAngle;
+	HWND m_hDiagram; // diagram window handle; only checked with ::IsWindow
 
 	void UpdateListBox(CListBox* pListBox, CString message);
 public:
