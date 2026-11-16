@@ -136,7 +136,7 @@ BEGIN
     EDITTEXT        IDC_EDIT_NUMOFTHREADS,119,236,40,14,ES_AUTOHSCROLL | ES_NUMBER,WS_EX_RIGHT
     CONTROL         "Calculate mTTC, mPET, P(UEA)",IDC_CHECK_PUEA,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,315,238,115,10
     CONTROL         "Output trj files in Text Format",IDC_CHECK_TRJTOTEXT,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,175,238,109,10
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,175,238,118,10
     PUSHBUTTON      "Click here for Conflict Angle Diagram",IDC_BUTTON1,111,176,126,14
 END
 
