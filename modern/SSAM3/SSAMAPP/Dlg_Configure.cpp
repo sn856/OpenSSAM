@@ -33,6 +33,9 @@ IMPLEMENT_DYNAMIC(CDlg_Configure, CDialog)
 CDlg_Configure::CDlg_Configure(CWnd* pParent /*=NULL*/)
 	: CDlg_Tab(pParent)
 	, m_hDiagram(NULL)
+	, m_bLayoutReady(false)
+	, m_bHasBaseSize(false)
+	, m_hThresholdsGroup(NULL)
 {
 
 }
@@ -47,6 +50,9 @@ CDlg_Configure::CDlg_Configure(SP_SSAMDoc pSSAMDoc, CWnd* pParent)
 	, m_IsCalcPUEA(0)
 	, m_IsWriteDat(0)
 	, m_hDiagram(NULL)
+	, m_bLayoutReady(false)
+	, m_bHasBaseSize(false)
+	, m_hThresholdsGroup(NULL)
 {
 	m_NumOfThreads = SSAMFuncs::DefaultNThreads();
 }
@@ -104,6 +110,32 @@ BOOL CDlg_Configure::OnInitDialog()
 		UpdateListBox(&m_ListBox_TrjFiles, fname+"\n");
 	}
 
+	CWnd* pCaseFiles = GetDlgItem(IDC_GROUP_CONFIG_CASEFILES);
+	CWnd* pThresholds = GetDlgItem(IDC_GROUP_CONFIG_THRESHOLDS);
+	if (pCaseFiles != NULL && pThresholds != NULL)
+	{
+		pCaseFiles->GetWindowRect(&m_InitialCaseFilesRect);
+		ScreenToClient(&m_InitialCaseFilesRect);
+		m_ListBox_TrjFiles.GetWindowRect(&m_InitialListRect);
+		ScreenToClient(&m_InitialListRect);
+		m_hThresholdsGroup = pThresholds->GetSafeHwnd();
+
+		// every child whose top is below the Case Files group moves down (incl. IDC_STATIC labels)
+		for (CWnd* pChild = GetWindow(GW_CHILD); pChild != NULL; pChild = pChild->GetWindow(GW_HWNDNEXT))
+		{
+			CRect rect;
+			pChild->GetWindowRect(&rect);
+			ScreenToClient(&rect);
+			if (rect.top > m_InitialCaseFilesRect.bottom)
+				m_MoveDownCtrls.push_back(std::make_pair(pChild->GetSafeHwnd(), rect));
+		}
+
+		CRect clientRect;
+		GetClientRect(&clientRect);
+		m_TemplateClientSize = clientRect.Size();
+		m_bLayoutReady = true;
+	}
+
 	return TRUE;
 }
 
@@ -137,6 +169,7 @@ BEGIN_MESSAGE_MAP(CDlg_Configure, CDialog)
 	ON_NOTIFY(UDN_DELTAPOS, IDC_SPIN_TTC, &CDlg_Configure::OnDeltaposSpinTtc)
 	ON_NOTIFY(UDN_DELTAPOS, IDC_SPIN_PET, &CDlg_Configure::OnDeltaposSpinPet)
 	ON_BN_CLICKED(IDC_BUTTON1, &CDlg_Configure::OnBnClickedButton1)
+	ON_WM_SIZE()
 END_MESSAGE_MAP()
 
 
@@ -362,4 +395,62 @@ void CDlg_Configure::OnBnClickedButton1()
 	}
 	m_hDiagram = dlg->GetSafeHwnd();
 	dlg->ShowWindow(SW_SHOW);
+}
+
+void CDlg_Configure::OnSize(UINT nType, int cx, int cy)
+{
+	CDialog::OnSize(nType, cx, cy);
+
+	if (!m_bLayoutReady)
+	{
+		return;
+	}
+
+	if (!m_bHasBaseSize)
+	{
+		// the template size (604x410 DLU) is not a tab size; wait for the first tab page size
+		if (cx <= 0 || cy <= 0 || (cx == m_TemplateClientSize.cx && cy == m_TemplateClientSize.cy))
+		{
+			return;
+		}
+		m_BaseClientSize = CSize(cx, cy);
+		m_bHasBaseSize = true;
+	}
+
+	int dx = cx - m_BaseClientSize.cx;
+	int dy = cy - m_BaseClientSize.cy;
+	if (dx < 0) dx = 0;
+	if (dy < 0) dy = 0;
+
+	const UINT flags = SWP_NOACTIVATE | SWP_NOZORDER;
+	CWnd* pCaseFiles = GetDlgItem(IDC_GROUP_CONFIG_CASEFILES);
+	if (pCaseFiles != NULL)
+	{
+		pCaseFiles->SetWindowPos(NULL, m_InitialCaseFilesRect.left, m_InitialCaseFilesRect.top,
+			m_InitialCaseFilesRect.Width() + dx, m_InitialCaseFilesRect.Height() + dy, flags);
+	}
+	if (::IsWindow(m_ListBox_TrjFiles.GetSafeHwnd()))
+	{
+		m_ListBox_TrjFiles.SetWindowPos(NULL, m_InitialListRect.left, m_InitialListRect.top,
+			m_InitialListRect.Width() + dx, m_InitialListRect.Height() + dy, flags);
+	}
+
+	for (size_t i = 0; i < m_MoveDownCtrls.size(); ++i)
+	{
+		HWND hCtrl = m_MoveDownCtrls[i].first;
+		const CRect& rect = m_MoveDownCtrls[i].second;
+		if (!::IsWindow(hCtrl))
+		{
+			continue;
+		}
+		int width = rect.Width();
+		if (hCtrl == m_hThresholdsGroup)
+		{
+			width += dx;
+		}
+		::SetWindowPos(hCtrl, NULL, rect.left, rect.top + dy, width, rect.Height(), flags);
+	}
+
+	// group boxes leave trails when moved; repaint the page and all children
+	RedrawWindow(NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
 }

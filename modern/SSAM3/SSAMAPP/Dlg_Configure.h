@@ -64,6 +64,13 @@ private:
 	CSpinButtonCtrl m_Spin_MaxRearAngle, m_Spin_MaxCrossingAngle;
 	HWND m_hDiagram; // diagram window handle; only checked with ::IsWindow
 
+	// layout on resize: initial rects in client coords, grown by (current - first tab size)
+	bool m_bLayoutReady, m_bHasBaseSize;
+	CSize m_TemplateClientSize, m_BaseClientSize;
+	CRect m_InitialCaseFilesRect, m_InitialListRect;
+	HWND m_hThresholdsGroup;
+	std::vector<std::pair<HWND, CRect> > m_MoveDownCtrls; // controls below the Case Files group
+
 	void UpdateListBox(CListBox* pListBox, CString message);
 public:
 	afx_msg void OnBnClickedButtonAdd();
@@ -72,4 +79,5 @@ public:
 	afx_msg void OnDeltaposSpinTtc(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnDeltaposSpinPet(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnBnClickedButton1();
+	afx_msg void OnSize(UINT nType, int cx, int cy);
 };
