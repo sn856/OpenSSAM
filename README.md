@@ -36,6 +36,11 @@ The repository is intentionally split into two working areas:
 
 End users should download the packaged `SSAM3EXE` release from GitHub Releases when available.
 
+The 1.1.0 package includes the Visual C++ runtime DLLs it needs, so it runs right after unzipping. If the program still reports that `MSVCP140.dll` or `MSVCR110.dll` is missing, install the matching Microsoft package:
+
+- Visual C++ 2015–2022 Redistributable (x64): https://aka.ms/vs/17/release/vc_redist.x64.exe
+- Visual C++ 2012 Redistributable (x64): https://www.microsoft.com/download/details.aspx?id=30679 (`vcredist_x64.exe`)
+
 The `archive/` tree is kept in this repository for reference, preservation, and source comparison. It is not the primary end-user download path.
 
 If you only need the legacy desktop application from the preserved archive, check:
@@ -54,9 +59,9 @@ Option names are lowercase. `nthreads=<N>` sets the number of analysis threads. 
 ## Build Notes
 
 - Platform: Windows
-- IDE: Visual Studio 2012
+- Build tools: Visual Studio 2022 Build Tools (MSVC v143, with the C++ MFC component). The original code was built with Visual Studio 2012.
 - GUI dependency: OpenSceneGraph
-- Legacy binaries may require the Visual C++ Redistributable for Visual Studio 2012
+- Running the programs requires the Visual C++ 2015–2022 (x64) and 2012 (x64) runtimes. The 2012 runtime is used by the OpenSceneGraph libraries. The release package includes the DLLs of both runtimes.
 - Archived GUI solution: `archive/SSAM3/SSAMAPP.sln`
 - Archived engine / CLI solution: `archive/SSAMDLL/SSAMDLL.sln`
 - Active GUI solution: `modern/SSAM3/SSAMAPP.sln`

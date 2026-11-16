@@ -36,6 +36,11 @@ OpenSSAM은 마이크로시뮬레이션 궤적 데이터 기반 대리안전도 
 
 일반 사용자는 가능하면 GitHub Releases에 올라가는 `SSAM3EXE` 패키지 배포본을 내려받아 사용하는 것을 기준으로 합니다.
 
+1.1.0 배포본에는 실행에 필요한 Visual C++ 런타임 DLL이 들어 있습니다. 압축을 풀고 바로 실행하면 됩니다. 그래도 `MSVCP140.dll`이나 `MSVCR110.dll`이 없다는 오류가 나오면 아래 Microsoft 재배포 패키지를 설치합니다.
+
+- Visual C++ 2015–2022 재배포 패키지 (x64): https://aka.ms/vs/17/release/vc_redist.x64.exe
+- Visual C++ 2012 재배포 패키지 (x64): https://www.microsoft.com/download/details.aspx?id=30679 (`vcredist_x64.exe`)
+
 `archive/` 트리는 참고, 보존, 소스 비교를 위한 영역이며, 기본적인 사용자 다운로드 경로로 보지는 않습니다.
 
 보존된 아카이브 안의 레거시 데스크톱 애플리케이션을 직접 실행하려면 다음 경로를 확인하면 됩니다.
@@ -54,9 +59,9 @@ OpenSSAM은 마이크로시뮬레이션 궤적 데이터 기반 대리안전도 
 ## 빌드 메모
 
 - 플랫폼: Windows
-- IDE: Visual Studio 2012
+- 빌드 도구: Visual Studio 2022 Build Tools (MSVC v143, C++ MFC 구성 요소 포함). 원본은 Visual Studio 2012로 만들어졌습니다.
 - GUI 의존성: OpenSceneGraph
-- 레거시 실행 파일은 Visual C++ Redistributable for Visual Studio 2012가 필요할 수 있음
+- 실행에는 Visual C++ 2015–2022(x64)와 2012(x64) 런타임이 필요합니다. 2012 런타임은 OpenSceneGraph 부품이 사용합니다. 배포본에는 두 런타임의 DLL이 들어 있습니다.
 - 아카이브 GUI 솔루션: `archive/SSAM3/SSAMAPP.sln`
 - 아카이브 엔진 / CLI 솔루션: `archive/SSAMDLL/SSAMDLL.sln`
 - 활성 GUI 솔루션: `modern/SSAM3/SSAMAPP.sln`
