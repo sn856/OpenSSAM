@@ -11,9 +11,9 @@
 
 ## 현재 확인된 문제
 
-- 메인 창은 크기 조절이 가능하지만 내부 탭과 컨트롤 배치가 유동적으로 따라오지 않는다.
-- 탭 내부 UI는 대부분 고정 좌표 기반으로 배치되어 있다.
-- 현재 메인 다이얼로그는 초기화 시점에만 탭 영역 크기를 계산하고, 리사이즈 시 재배치를 수행하지 않는다.
+- 메인 창과 모든 탭(Configure, Conflicts, Summary, Filter, ttest, Map)이 창 크기를 따라온다 (2026-11 기준).
+- 메인 창은 처음 크기보다 작게 줄일 수 없다.
+- 분석은 화면 스레드에서 돌아서, 분석 중에는 창이 멈춘다.
 
 ## 작업 대상
 
@@ -109,11 +109,19 @@
 - 이유:
   - 사용자가 받는 폴더 구성을 가능한 한 원본 `SSAM3EXE`와 비슷하게 유지하기 위함이다.
 
-## 다음 확인 사항
+## 화면 프로그램 버그 수정·사용성 개선 (2026-11)
 
-- 메인 다이얼로그에 `OnSize`를 추가할지 여부
-- 탭별 공통 리사이즈 처리 함수를 둘지 여부
-- MFC 고정 배치 유지 + 수동 재배치 방식으로 갈지, 간단한 레이아웃 헬퍼를 도입할지 여부
+- Configure 탭:
+  - TRJ 파일 여러 개를 골라 지우면 고른 줄만 지워진다 (예전에는 엉뚱한 줄이 지워졌다).
+  - Analyze는 값을 먼저 검사한다. PET 0 이하, 스레드 수 1 미만, 읽을 수 없는 칸, 빈 파일 목록이면 안내창을 띄우고 분석하지 않는다. 이전 결과는 남는다.
+  - PET 위아래 화살표의 최솟값은 0.1이다.
+  - 각도 그림 창은 버튼을 여러 번 눌러도 하나만 뜬다.
+  - 확인란 문구 오타를 고쳤다 ("Output trj files in Text Format").
+- Conflicts·Summary 목록은 줄을 넣는 동안 다시 그리지 않는다. 창 크기를 바꿀 때 열 너비를 다시 맞추지 않는다.
+  - 약 150MB 파일 결과(약 2,600줄)를 Conflicts 탭에 채우는 시간: 15초 → 9초 (같은 PC에서 잰 값).
+- Configure·Filter·ttest 탭이 창 크기를 따라온다. 기준은 프로그램을 띄웠을 때의 배치다.
+- 각 탭의 묶음 상자에 고유 번호(`IDC_GROUP_<탭>_<내용>`)를 붙였다.
+- 화면 프로그램과 콘솔 프로그램의 상충 건수가 같은 것을 확인했다.
 
 ## 분석 엔진 속도 개선 (2026-11)
 
@@ -154,7 +162,7 @@
   - 시험 TRJ 파일 경로는 `.local/testdata/test-files.json`에 적는다 (`small`, `medium`, `large`).
   - 옛 형식·잘린 시험 파일 만들기: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-engine-testdata.ps1`
   - 기준 결과는 수정 전 엔진으로 한 번만 만든다 (`verify-engine.ps1 -MakeBaseline`). 다시 만들지 않는다.
-- 엔진과 명령줄 프로그램만 빌드: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-release-mt-x64.ps1 -EngineOnly`
+- 엔진과 콘솔 프로그램만 빌드: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-release-mt-x64.ps1 -EngineOnly`
 - 빠른 검증 (큰 파일 제외): `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-engine.ps1 -Quick`
 - 전체 검증 (큰 파일 포함): `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-engine.ps1`
 - 종료 코드 0이면 합격이다. 한 줄이라도 `MISMATCH`이면 불합격이다.
@@ -162,15 +170,10 @@
 
 ### 다음 할 일
 
-1. **화면 프로그램(SSAM3M.exe) 다시 빌드.**
-   - 이번 작업에서 화면 프로그램은 다시 빌드하지 못했다. 빌드 도구에 MFC 라이브러리가 없다.
-   - Visual Studio Installer에서 "C++ MFC for latest v143 build tools (x86 & x64)"를 설치한다.
-   - `scripts/build-release-mt-x64.ps1`를 실행한다. 엔진, 명령줄 프로그램, 화면 프로그램을 빌드하고 엔진 DLL을 `modern/SSAM3/WorkingDir/`로 복사한다.
-   - 빌드 전까지 `WorkingDir`의 화면 프로그램과 엔진은 예전 것 그대로 둔다. 새 엔진 DLL만 따로 넣지 않는다 (헤더가 바뀌어 섞으면 안 된다).
-   - 빌드 뒤 화면 프로그램으로 분석을 한 번 돌려, 명령줄 프로그램과 상충 건수가 같은지 확인한다.
-   - 화면 프로그램에서만 닿는 경로(엔진의 PET 0 거절, 오류 뒤 다시 분석)도 이때 확인한다.
+1. 화면 프로그램 빌드는 끝났다 (빌드 도구에 "C++ MFC for latest v143 build tools"를 설치했다). 콘솔 프로그램과 상충 건수가 같은 것도 확인했다.
+   - 분석 도중 엔진 오류가 난 뒤 다시 분석하는 경로도 확인했다 (잘린 TRJ 파일로 오류를 낸 뒤 정상 파일로 다시 분석하면 결과가 같다).
 2. 빅엔디언 TRJ 파일 확인 (시험 파일이 없어 확인하지 못했다).
-3. 다음 작업 후보: 화면 프로그램의 진행률 표시·취소, 결과 목록 채우기 속도, TRJ 파일 여러 개 동시 분석, 빅엔디언 변환 버그, 한 차량이 다른 차량 안에 완전히 들어간 경우를 놓치는 판정.
+3. 다음 작업 후보: 분석 중 창 멈춤(진행률 표시·취소), 메인 창 최소 크기, 결과 목록을 가상 목록으로 바꾸기, TRJ 파일 여러 개 동시 분석, 빅엔디언 변환 버그, 한 차량이 다른 차량 안에 완전히 들어간 경우를 놓치는 판정.
 
 ## 범위 제외
 

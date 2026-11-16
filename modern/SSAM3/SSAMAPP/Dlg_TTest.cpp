@@ -33,6 +33,8 @@ IMPLEMENT_DYNAMIC(CDlg_TTest, CDialog)
 
 CDlg_TTest::CDlg_TTest(CWnd* pParent /*=NULL*/)
 	: CDlg_Tab(pParent)
+	, m_LayoutReady(false)
+	, m_BaseClientSize(0, 0)
 {
 
 }
@@ -42,6 +44,8 @@ CDlg_TTest::CDlg_TTest(SP_SSAMDoc pSSAMDoc,
 	: CDlg_Tab(pParent)
 	, m_pSSAMDoc (pSSAMDoc)
 	, m_pSSAMDoc2(NULL)
+	, m_LayoutReady(false)
+	, m_BaseClientSize(0, 0)
 {
 	
 }
@@ -118,7 +122,25 @@ BOOL CDlg_TTest::OnInitDialog()
 		m_List_Measures.InsertColumn(i, _T(""), LVCFMT_LEFT, 90, -1);
 	}
 
+	GetInitialRect(GetDlgItem(IDC_GROUP_TTEST_FILES), m_InitialFilesGroupRect);
+	GetInitialRect(GetDlgItem(IDC_GROUP_TTEST_CONFIG), m_InitialConfigGroupRect);
+	GetInitialRect(&m_Static_File1, m_InitialFile1Rect);
+	GetInitialRect(&m_Static_File2, m_InitialFile2Rect);
+	GetInitialRect(&m_List_Measures, m_InitialMeasuresRect);
+	m_BaseClientSize = CSize(0, 0);
+	m_LayoutReady = true;
+
 	return TRUE;
+}
+
+void CDlg_TTest::GetInitialRect(CWnd* pWnd, CRect& rect)
+{
+	rect.SetRectEmpty();
+	if (pWnd != NULL && ::IsWindow(pWnd->GetSafeHwnd()))
+	{
+		pWnd->GetWindowRect(&rect);
+		ScreenToClient(&rect);
+	}
 }
 
 bool CDlg_TTest::SaveData()
@@ -137,7 +159,48 @@ BEGIN_MESSAGE_MAP(CDlg_TTest, CDialog)
 	ON_BN_CLICKED(IDC_BUTTON_DELETEFILE, &CDlg_TTest::OnBnClickedButtonDeletefile)
 	ON_BN_CLICKED(IDC_BUTTON_ANALYZE, &CDlg_TTest::OnBnClickedButtonAnalyze)
 	ON_BN_CLICKED(IDC_BUTTON_EXPORT, &CDlg_TTest::OnBnClickedButtonExport)
+	ON_WM_SIZE()
 END_MESSAGE_MAP()
+
+void CDlg_TTest::OnSize(UINT nType, int cx, int cy)
+{
+	CDialog::OnSize(nType, cx, cy);
+
+	if (!m_LayoutReady || cx <= 0 || cy <= 0)
+	{
+		return;
+	}
+	if (m_BaseClientSize.cx == 0 && m_BaseClientSize.cy == 0)
+	{
+		m_BaseClientSize = CSize(cx, cy);
+	}
+
+	const int dx = max(0, cx - m_BaseClientSize.cx);
+	const int dy = max(0, cy - m_BaseClientSize.cy);
+
+	struct Item { CWnd* pWnd; const CRect* pRect; int growX; int growY; };
+	Item items[] = {
+		{ GetDlgItem(IDC_GROUP_TTEST_FILES), &m_InitialFilesGroupRect, dx, 0 },
+		{ GetDlgItem(IDC_GROUP_TTEST_CONFIG), &m_InitialConfigGroupRect, dx, 0 },
+		{ &m_Static_File1, &m_InitialFile1Rect, dx, 0 },
+		{ &m_Static_File2, &m_InitialFile2Rect, dx, 0 },
+		{ &m_List_Measures, &m_InitialMeasuresRect, dx, dy },
+	};
+	for (int i = 0; i < (int)(sizeof(items) / sizeof(items[0])); i++)
+	{
+		if (items[i].pWnd == NULL || !::IsWindow(items[i].pWnd->GetSafeHwnd()) || items[i].pRect->IsRectEmpty())
+		{
+			continue;
+		}
+		items[i].pWnd->SetWindowPos(NULL,
+			items[i].pRect->left,
+			items[i].pRect->top,
+			items[i].pRect->Width() + items[i].growX,
+			items[i].pRect->Height() + items[i].growY,
+			SWP_NOZORDER | SWP_NOACTIVATE);
+	}
+	Invalidate();
+}
 
 
 // CDlg_TTest message handlers

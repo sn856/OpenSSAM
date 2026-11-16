@@ -251,6 +251,12 @@ private:
 	CListBox m_ListBox_DataSet;
 	CListCtrl m_List_Measures, m_List_Conflicts;
 
+	bool m_LayoutReady;
+	CSize m_BaseClientSize;
+	CRect m_InitialFilesGroupRect, m_InitialConfigGroupRect;
+	CRect m_InitialFile1Rect, m_InitialFile2Rect, m_InitialMeasuresRect;
+	void GetInitialRect(CWnd* pWnd, CRect& rect);
+
 	void PickSumMeasures()
 	{ 
 		m_SumMeasures.clear();
@@ -282,4 +288,5 @@ public:
 	afx_msg void OnBnClickedButtonDeletefile();
 	afx_msg void OnBnClickedButtonAnalyze();
 	afx_msg void OnBnClickedButtonExport();
+	afx_msg void OnSize(UINT nType, int cx, int cy);
 };

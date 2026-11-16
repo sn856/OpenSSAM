@@ -99,9 +99,23 @@ bool CDlg_Summary::SaveData()
 	return true;
 }
 
+namespace
+{
+	struct ListRedrawGuard
+	{
+		CListCtrl& m_List;
+		explicit ListRedrawGuard(CListCtrl& list) : m_List(list) { m_List.SetRedraw(FALSE); }
+		~ListRedrawGuard() { m_List.SetRedraw(TRUE); m_List.Invalidate(); }
+	private:
+		ListRedrawGuard& operator=(const ListRedrawGuard&);
+	};
+}
+
 void CDlg_Summary::SetData()
 {
 	GetFilterStatus();
+	ListRedrawGuard measuresRedrawGuard(m_ListCtrl_Measures);
+	ListRedrawGuard conflictsRedrawGuard(m_ListCtrl_Conflicts);
 	m_ListCtrl_Measures.DeleteAllItems();
 	m_ListCtrl_Conflicts.DeleteAllItems();
 
@@ -328,8 +342,6 @@ void CDlg_Summary::OnSize(UINT nType, int cx, int cy)
 			m_InitialExportRect.Height(),
 			SWP_NOACTIVATE | SWP_NOZORDER);
 	}
-
-	AutoSizeColumns();
 }
 
 void CDlg_Summary::GetFilterStatus()
