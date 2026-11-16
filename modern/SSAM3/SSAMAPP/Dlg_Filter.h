@@ -63,6 +63,11 @@ private:
 
 	char tmp_str[1000];
 
+	enum { NUM_WIDEN_CTRLS = 6 };
+	CRect m_InitialWidenRect[NUM_WIDEN_CTRLS];
+	CSize m_BaseClientSize;
+	bool m_bLayoutReady;
+
 	void OnDeltaposSpin(NMHDR *pNMHDR, LRESULT *pResult, double& spinValue, double step = 0.05);
 	void InitListBoxes();
 	void SetListBoxes();
@@ -88,4 +93,5 @@ public:
 	afx_msg void OnDeltaposSpinUry(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnBnClickedButtonApply();
 	afx_msg void OnBnClickedButtonRectoredefault();
+	afx_msg void OnSize(UINT nType, int cx, int cy);
 };

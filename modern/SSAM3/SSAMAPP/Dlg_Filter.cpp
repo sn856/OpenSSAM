@@ -31,8 +31,19 @@
 
 IMPLEMENT_DYNAMIC(CDlg_Filter, CDialog)
 
+static const UINT FILTER_WIDEN_IDS[] = {
+	IDC_GROUP_FILTER_SURROGATE,
+	IDC_GROUP_FILTER_CONFLICTTYPE,
+	IDC_GROUP_FILTER_LINKS,
+	IDC_GROUP_FILTER_TRJFILES,
+	IDC_GROUP_FILTER_AREA,
+	IDC_LIST_TRJFILES
+};
+
 CDlg_Filter::CDlg_Filter(CWnd* pParent /*=NULL*/)
 	: CDlg_Tab(pParent)
+	, m_BaseClientSize(0, 0)
+	, m_bLayoutReady(false)
 {
 
 }
@@ -42,6 +53,8 @@ CDlg_Filter::CDlg_Filter(SP_SSAMDoc pSSAMDoc,
 	: CDlg_Tab(pParent)
 	, m_pSSAMDoc (pSSAMDoc)
 	, m_pFilterParams(pSSAMDoc->GetFilterParams())
+	, m_BaseClientSize(0, 0)
+	, m_bLayoutReady(false)
 {
 
 }
@@ -108,6 +121,17 @@ BOOL CDlg_Filter::OnInitDialog()
 	}
 	InitListBoxes();
 	SetListBoxes();	
+
+	for (int i = 0; i < NUM_WIDEN_CTRLS; ++i)
+	{
+		CWnd* pCtrl = GetDlgItem(FILTER_WIDEN_IDS[i]);
+		if (pCtrl != NULL)
+		{
+			pCtrl->GetWindowRect(&m_InitialWidenRect[i]);
+			ScreenToClient(&m_InitialWidenRect[i]);
+		}
+	}
+	m_bLayoutReady = true;
 	return TRUE;
 }
 
@@ -255,6 +279,7 @@ BEGIN_MESSAGE_MAP(CDlg_Filter, CDialog)
 	ON_NOTIFY(UDN_DELTAPOS, IDC_SPIN_URY, &CDlg_Filter::OnDeltaposSpinUry)
 	ON_BN_CLICKED(IDC_BUTTON_APPLY, &CDlg_Filter::OnBnClickedButtonApply)
 	ON_BN_CLICKED(IDC_BUTTON_RECTOREDEFAULT, &CDlg_Filter::OnBnClickedButtonRectoredefault)
+	ON_WM_SIZE()
 END_MESSAGE_MAP()
 
 
@@ -452,4 +477,35 @@ void CDlg_Filter::UpdateListBox(CListBox* pListBox, CString message)
 	pListBox->ReleaseDC(pDC);
 	if (pListBox->GetHorizontalExtent() < dx)
 		pListBox->SetHorizontalExtent(dx);
+}
+
+void CDlg_Filter::OnSize(UINT nType, int cx, int cy)
+{
+	CDialog::OnSize(nType, cx, cy);
+
+	if (!m_bLayoutReady || cx <= 0 || cy <= 0)
+	{
+		return;
+	}
+	if (m_BaseClientSize.cx == 0)
+	{
+		m_BaseClientSize = CSize(cx, cy);
+	}
+
+	int dx = cx - m_BaseClientSize.cx;
+	if (dx < 0) dx = 0;
+
+	for (int i = 0; i < NUM_WIDEN_CTRLS; ++i)
+	{
+		CWnd* pCtrl = GetDlgItem(FILTER_WIDEN_IDS[i]);
+		if (pCtrl == NULL || !::IsWindow(pCtrl->GetSafeHwnd()))
+		{
+			continue;
+		}
+		pCtrl->SetWindowPos(NULL, 0, 0,
+			m_InitialWidenRect[i].Width() + dx,
+			m_InitialWidenRect[i].Height(),
+			SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOMOVE);
+	}
+	Invalidate();
 }
